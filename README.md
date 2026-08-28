@@ -27,7 +27,7 @@ No dialog appears for new or assistant-less sessions, active/streaming agents, s
 
 The extension starts idle time at `agent_settled`, not at the beginning of a model response. Raw TUI input is the observable user-activity boundary. Activity after the threshold latches a pending decision; a successful model run or compaction starts a fresh interval.
 
-On startup, reload, resume, or fork, the extension inspects at most 64 parent-linked entries from the active session leaf. Ordinary session entries count as observable activity; background extension state and custom context entries do not. A deeper session is treated as established without loading its full history. The extension writes no session records or mutable configuration of its own.
+On startup, reload, resume, or fork, the extension inspects at most 64 parent-linked entries from the active session leaf. Ordinary session entries count as observable activity; background extension state and custom context entries do not. If that bounded tail contains no completed assistant response, the extension fails closed and does not prompt. The extension writes no session records or mutable configuration of its own.
 
 External operating-system activity and Pi behavior that the public extension API does not expose are outside this boundary.
 

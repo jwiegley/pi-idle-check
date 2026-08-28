@@ -54,3 +54,37 @@ Replace sessionManager.getBranch() with a fixed-size parent-entry lookback so au
 ]
 #+end_src
 
+* DONE [#B] Fix audit gaps in resume semantics and integration coverage
+:PROPERTIES:
+:OBR_SCHEMA_VERSION: 17
+:ID:       idle-zlv
+:LABELS:   []
+:ISSUE_TYPE: bug
+:CREATED:  [2026-08-28 Fri 01:24]
+:MODIFIED: [2026-08-28 Fri 01:29]
+:CREATED_BY: johnw
+:FINISHED: [2026-08-28 Fri 01:29]
+:CLOSE_REASON: Removed bounded-lookback conversation inference and added real template, skill, tool, retry, reload, and runtime-resume integration tests.
+:SOURCE_REPO: pi-idle-check
+:SOURCE_REPO_PATH: /Users/johnw/src/pi-idle-check
+:ORIGINAL_SIZE: 0
+:END:
+
+Remove false-positive conversation inference at the bounded resume lookback, and add real Pi integration coverage for prompt templates, skills, tool/retry settlement, reload, and resume.
+
+** Dependencies
+
+#+begin_src json
+[
+  {
+    "issue_id": "idle-zlv",
+    "depends_on_id": "idle-y2k",
+    "type": "discovered-from",
+    "created_at": "2026-08-28T08:24:52.012187Z",
+    "created_by": "johnw",
+    "metadata": "{}",
+    "thread_id": ""
+  }
+]
+#+end_src
+

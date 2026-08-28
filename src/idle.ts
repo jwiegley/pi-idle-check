@@ -31,10 +31,7 @@ export function getSessionIdleSeed(
     }
 
     if (hasConversation && lastActivityAt !== undefined) break;
-    if (inspected === SESSION_LOOKBACK_LIMIT) {
-      if (entry.parentId !== null) hasConversation = true;
-      break;
-    }
+    if (inspected === SESSION_LOOKBACK_LIMIT) break;
 
     entry = entry.parentId === null ? undefined : sessionManager.getEntry(entry.parentId);
   }

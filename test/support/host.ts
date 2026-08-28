@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -10,6 +10,7 @@ import {
 } from "@earendil-works/pi-ai";
 import {
   createAgentSession,
+  type CreateAgentSessionOptions,
   DefaultResourceLoader,
   type AgentSession,
   type InlineExtension,
@@ -32,13 +33,26 @@ export type TestHost = {
 export async function createTestHost(
   extensionFactories: InlineExtension[] = [],
   options: {
+    customTools?: CreateAgentSessionOptions["customTools"];
     faux?: RegisterFauxProviderOptions;
     extensionPaths?: string[];
+    prompts?: Record<string, string>;
     settings?: Parameters<typeof SettingsManager.inMemory>[0];
+    skills?: Record<string, string>;
   } = {},
 ): Promise<TestHost> {
   const root = mkdtempSync(join(tmpdir(), "pi-idle-check-test-"));
   const agentDir = join(root, "agent");
+  for (const [name, content] of Object.entries(options.prompts ?? {})) {
+    const directory = join(agentDir, "prompts");
+    mkdirSync(directory, { recursive: true });
+    writeFileSync(join(directory, name), content);
+  }
+  for (const [name, content] of Object.entries(options.skills ?? {})) {
+    const directory = join(agentDir, "skills", name);
+    mkdirSync(directory, { recursive: true });
+    writeFileSync(join(directory, "SKILL.md"), content);
+  }
   const settingsManager = SettingsManager.inMemory(options.settings);
   const resourceLoader = new DefaultResourceLoader({
     cwd: root,
@@ -47,8 +61,8 @@ export async function createTestHost(
     additionalExtensionPaths:
       options.extensionPaths ?? [fileURLToPath(new URL("../../index.ts", import.meta.url))],
     extensionFactories,
-    noSkills: true,
-    noPromptTemplates: true,
+    noSkills: options.skills === undefined,
+    noPromptTemplates: options.prompts === undefined,
     noThemes: true,
     noContextFiles: true,
   });
@@ -72,7 +86,7 @@ export async function createTestHost(
     resourceLoader,
     sessionManager,
     settingsManager,
-    tools: [],
+    customTools: options.customTools ?? [],
   });
 
   return {

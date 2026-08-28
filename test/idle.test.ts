@@ -141,7 +141,7 @@ test("resume inspection caps parent lookups", () => {
       }),
     ),
     {
-      hasConversation: true,
+      hasConversation: false,
       lastActivityAt: (SESSION_LOOKBACK_LIMIT + 9) * 1_000,
     },
   );
