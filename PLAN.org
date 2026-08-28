@@ -1,0 +1,22 @@
+#+TITLE: Obr Issues
+#+SEQ_TODO: TODO DOING DRAFT WAIT DEFER NOTE | DONE CANCELED
+#+ISSUE_PREFIX: idle
+
+* DONE [#B] Implement idle compaction prompt extension
+:PROPERTIES:
+:OBR_SCHEMA_VERSION: 17
+:ID:       idle-h3v
+:LABELS:   []
+:ISSUE_TYPE: feature
+:CREATED:  [2026-08-27 Thu 23:01]
+:MODIFIED: [2026-08-27 Thu 23:25]
+:CREATED_BY: johnw
+:FINISHED: [2026-08-27 Thu 23:25]
+:CLOSE_REASON: Implemented and verified standalone idle compaction prompt extension
+:SOURCE_REPO: pi-idle-check
+:SOURCE_REPO_PATH: /Users/johnw/src/pi-idle-check
+:ORIGINAL_SIZE: 0
+:END:
+
+Build and verify the standalone pi-idle-check Pi extension. After more than three minutes of pure observable idle time, intercept an interactive prompt and offer compact-before-send, send-now, or cancel without paid-provider tests.
+

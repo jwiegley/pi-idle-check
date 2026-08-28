@@ -1,0 +1,48 @@
+{
+  "name": "pi-idle-check",
+  "version": "0.1.0",
+  "description": "Offer Pi compaction before a prompt after three minutes of idle time",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "pi-coding-agent",
+    "compaction",
+    "prompt-cache"
+  ],
+  "files": [
+    "index.ts",
+    "src/**/*.ts",
+    "README.md"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test",
+    "pack:check": "npm pack --dry-run --json",
+    "check": "npm run typecheck && npm test && npm run pack:check"
+  },
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": ">=0.84.3 <0.85.0"
+  },
+  "peerDependenciesMeta": {
+    "@earendil-works/pi-coding-agent": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@earendil-works/pi-ai": "0.84.3",
+    "@earendil-works/pi-coding-agent": "0.84.3",
+    "@types/node": "22.19.19",
+    "typescript": "5.9.3"
+  }
+}
