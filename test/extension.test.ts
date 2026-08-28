@@ -130,11 +130,15 @@ function createContext(
     },
   } as unknown as ExtensionUIContext;
 
+  const entriesById = new Map(entries.map((entry) => [entry.id, entry]));
   const ctx = {
     mode: options.mode ?? "tui",
     hasUI: options.hasUI ?? true,
     ui,
-    sessionManager: { getBranch: () => entries },
+    sessionManager: {
+      getLeafEntry: () => entries.at(-1),
+      getEntry: (id: string) => entriesById.get(id),
+    },
     isIdle: () => idle,
     compact(value: CompactOptions) {
       compactOptions = value;

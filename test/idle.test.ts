@@ -1,8 +1,27 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { SessionEntry } from "@earendil-works/pi-coding-agent";
-import { getSessionIdleSeed, IDLE_THRESHOLD_MS, IdleTracker } from "../src/idle.ts";
+import type { ExtensionContext, SessionEntry } from "@earendil-works/pi-coding-agent";
+import {
+  getSessionIdleSeed,
+  IDLE_THRESHOLD_MS,
+  IdleTracker,
+  SESSION_LOOKBACK_LIMIT,
+} from "../src/idle.ts";
+
+function sessionView(
+  entries: SessionEntry[],
+  onLookup?: () => void,
+): Pick<ExtensionContext["sessionManager"], "getLeafEntry" | "getEntry"> {
+  const entriesById = new Map(entries.map((entry) => [entry.id, entry]));
+  return {
+    getLeafEntry: () => entries.at(-1),
+    getEntry: (id: string) => {
+      onLookup?.();
+      return entriesById.get(id);
+    },
+  } as Pick<ExtensionContext["sessionManager"], "getLeafEntry" | "getEntry">;
+}
 
 test("uses a fixed three-minute threshold", () => {
   assert.equal(IDLE_THRESHOLD_MS, 180_000);
@@ -81,7 +100,7 @@ test("resume seed uses persisted session activity and ignores extension state en
     },
   ] as unknown as SessionEntry[];
 
-  assert.deepEqual(getSessionIdleSeed(entries), {
+  assert.deepEqual(getSessionIdleSeed(sessionView(entries)), {
     hasConversation: true,
     lastActivityAt: 20_000,
   });
@@ -98,8 +117,33 @@ test("resume seed requires a completed assistant message", () => {
     },
   ] as unknown as SessionEntry[];
 
-  assert.deepEqual(getSessionIdleSeed(entries), {
+  assert.deepEqual(getSessionIdleSeed(sessionView(entries)), {
     hasConversation: false,
     lastActivityAt: 10_000,
   });
+});
+
+test("resume inspection caps parent lookups", () => {
+  const entries = Array.from({ length: SESSION_LOOKBACK_LIMIT + 10 }, (_, index) => ({
+    type: "label",
+    id: `label-${index}`,
+    parentId: index === 0 ? null : `label-${index - 1}`,
+    timestamp: new Date(index * 1_000).toISOString(),
+    targetId: "target",
+    label: String(index),
+  })) as unknown as SessionEntry[];
+  let lookups = 0;
+
+  assert.deepEqual(
+    getSessionIdleSeed(
+      sessionView(entries, () => {
+        lookups++;
+      }),
+    ),
+    {
+      hasConversation: true,
+      lastActivityAt: (SESSION_LOOKBACK_LIMIT + 9) * 1_000,
+    },
+  );
+  assert.equal(lookups, SESSION_LOOKBACK_LIMIT - 1);
 });

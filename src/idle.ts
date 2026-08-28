@@ -1,24 +1,42 @@
-import type { SessionEntry } from "@earendil-works/pi-coding-agent";
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 export const IDLE_THRESHOLD_MS = 180_000;
+export const SESSION_LOOKBACK_LIMIT = 64;
 
 export type SessionIdleSeed = {
   hasConversation: boolean;
   lastActivityAt: number | undefined;
 };
 
-export function getSessionIdleSeed(entries: readonly SessionEntry[]): SessionIdleSeed {
+export function getSessionIdleSeed(
+  sessionManager: Pick<ExtensionContext["sessionManager"], "getLeafEntry" | "getEntry">,
+): SessionIdleSeed {
+  let entry = sessionManager.getLeafEntry();
   let hasConversation = false;
   let lastActivityAt: number | undefined;
 
-  for (const entry of entries) {
-    if (entry.type === "message" && entry.message.role === "assistant") hasConversation = true;
-    if (entry.type === "custom" || entry.type === "custom_message") continue;
-
-    const timestamp = Date.parse(entry.timestamp);
-    if (Number.isFinite(timestamp) && (lastActivityAt === undefined || timestamp > lastActivityAt)) {
-      lastActivityAt = timestamp;
+  for (let inspected = 1; entry !== undefined; inspected++) {
+    if (
+      entry.type === "message" &&
+      entry.message.role === "assistant" &&
+      entry.message.stopReason !== "pending" &&
+      entry.message.stopReason !== "deferred"
+    ) {
+      hasConversation = true;
     }
+
+    if (lastActivityAt === undefined && entry.type !== "custom" && entry.type !== "custom_message") {
+      const timestamp = Date.parse(entry.timestamp);
+      if (Number.isFinite(timestamp)) lastActivityAt = timestamp;
+    }
+
+    if (hasConversation && lastActivityAt !== undefined) break;
+    if (inspected === SESSION_LOOKBACK_LIMIT) {
+      if (entry.parentId !== null) hasConversation = true;
+      break;
+    }
+
+    entry = entry.parentId === null ? undefined : sessionManager.getEntry(entry.parentId);
   }
 
   return { hasConversation, lastActivityAt };

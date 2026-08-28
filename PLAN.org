@@ -20,3 +20,37 @@
 
 Build and verify the standalone pi-idle-check Pi extension. After more than three minutes of pure observable idle time, intercept an interactive prompt and offer compact-before-send, send-now, or cancel without paid-provider tests.
 
+* DONE [#B] Bound resume history inspection for Nix gallery
+:PROPERTIES:
+:OBR_SCHEMA_VERSION: 17
+:ID:       idle-y2k
+:LABELS:   []
+:ISSUE_TYPE: bug
+:CREATED:  [2026-08-27 Thu 23:36]
+:MODIFIED: [2026-08-27 Thu 23:40]
+:CREATED_BY: johnw
+:FINISHED: [2026-08-27 Thu 23:40]
+:CLOSE_REASON: Replaced full-branch resume loading with fixed 64-entry parent lookback
+:SOURCE_REPO: pi-idle-check
+:SOURCE_REPO_PATH: /Users/johnw/src/pi-idle-check
+:ORIGINAL_SIZE: 0
+:END:
+
+Replace sessionManager.getBranch() with a fixed-size parent-entry lookback so automatic resume seeding is constant-memory and passes the managed Pi gallery history-consumer contract.
+
+** Dependencies
+
+#+begin_src json
+[
+  {
+    "issue_id": "idle-y2k",
+    "depends_on_id": "idle-h3v",
+    "type": "discovered-from",
+    "created_at": "2026-08-28T06:36:20.670585Z",
+    "created_by": "johnw",
+    "metadata": "{}",
+    "thread_id": ""
+  }
+]
+#+end_src
+

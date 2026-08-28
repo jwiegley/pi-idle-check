@@ -30,7 +30,7 @@ export function createPiIdleCheck(options: PiIdleCheckOptions = {}): (pi: Extens
 
     pi.on("session_start", (_event, ctx) => {
       removeTerminalListener?.();
-      const seed = getSessionIdleSeed(ctx.sessionManager.getBranch());
+      const seed = getSessionIdleSeed(ctx.sessionManager);
       tracker.seed(seed.lastActivityAt, seed.hasConversation);
 
       removeTerminalListener =
