@@ -7,11 +7,13 @@ import type { ExtensionUIContext } from "@earendil-works/pi-coding-agent";
 import { COMPACT_AND_SEND, createPiIdleCheck, SEND_WITHOUT_COMPACTING } from "../index.ts";
 import { createTestHost } from "./support/host.ts";
 
-function testUi(onSelect?: () => string | undefined): ExtensionUIContext {
+const TEST_THRESHOLD = { unit: "tokens", value: 1 } as const;
+
+function testUi(onChoice?: () => string | undefined): ExtensionUIContext {
   let editorText = "";
   return {
-    async select() {
-      return onSelect?.();
+    async custom() {
+      return onChoice?.();
     },
     notify() {},
     onTerminalInput() {
@@ -50,7 +52,7 @@ test("does not call a provider before the idle decision", async () => {
   let now = 0;
   let hostCallCountAtDialog: number | undefined;
   const host = await createTestHost(
-    [{ name: "idle-check", factory: createPiIdleCheck({ now: () => now }) }],
+    [{ name: "idle-check", factory: createPiIdleCheck({ now: () => now, contextThreshold: TEST_THRESHOLD }) }],
     { extensionPaths: [] },
   );
   const ui = testUi(() => {
@@ -76,7 +78,7 @@ test("real compaction completes before exact prompt replay", { timeout: 5_000 },
   let now = 0;
   let callCountAtDialog: number | undefined;
   const host = await createTestHost(
-    [{ name: "idle-check", factory: createPiIdleCheck({ now: () => now }) }],
+    [{ name: "idle-check", factory: createPiIdleCheck({ now: () => now, contextThreshold: TEST_THRESHOLD }) }],
     {
       extensionPaths: [],
       settings: { compaction: { keepRecentTokens: 1, reserveTokens: 0 } },
@@ -91,6 +93,7 @@ test("real compaction completes before exact prompt replay", { timeout: 5_000 },
     totalTokens: 100,
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
   };
+  const image = { type: "image" as const, data: "base64", mimeType: "image/png" };
 
   host.sessionManager.appendMessage({
     role: "user",
@@ -123,7 +126,7 @@ test("real compaction completes before exact prompt replay", { timeout: 5_000 },
       });
     });
 
-    await host.session.prompt("exact replay");
+    await host.session.prompt("exact replay", { images: [image] });
     assert.equal(callCountAtDialog, 0);
     await settled;
 
@@ -134,7 +137,7 @@ test("real compaction completes before exact prompt replay", { timeout: 5_000 },
       .filter((entry) => entry.type === "message" && entry.message.role === "user")
       .at(-1);
     assert.ok(replay?.type === "message" && replay.message.role === "user");
-    assert.deepEqual(replay.message.content, [{ type: "text", text: "exact replay" }]);
+    assert.deepEqual(replay.message.content, [{ type: "text", text: "exact replay" }, image]);
   } finally {
     host.cleanup();
   }

@@ -1,7 +1,7 @@
 {
   "name": "pi-idle-check",
   "version": "0.1.0",
-  "description": "Offer Pi compaction before a prompt after three minutes of idle time",
+  "description": "Offer context-aware send, compact, or new-session choices after idle time",
   "private": true,
   "license": "UNLICENSED",
   "type": "module",
@@ -32,16 +32,21 @@
     ]
   },
   "peerDependencies": {
-    "@earendil-works/pi-coding-agent": ">=0.84.3 <0.85.0"
+    "@earendil-works/pi-coding-agent": ">=0.84.3 <0.85.0",
+    "@earendil-works/pi-tui": "*"
   },
   "peerDependenciesMeta": {
     "@earendil-works/pi-coding-agent": {
+      "optional": true
+    },
+    "@earendil-works/pi-tui": {
       "optional": true
     }
   },
   "devDependencies": {
     "@earendil-works/pi-ai": "0.84.3",
     "@earendil-works/pi-coding-agent": "0.84.3",
+    "@earendil-works/pi-tui": "0.84.3",
     "@types/node": "22.19.19",
     "typescript": "5.9.3"
   }

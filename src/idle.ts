@@ -3,6 +3,16 @@ import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 export const IDLE_THRESHOLD_MS = 180_000;
 export const SESSION_LOOKBACK_LIMIT = 64;
 
+export function formatIdleDuration(durationMs: number): string {
+  const totalSeconds = Math.max(0, Math.floor(durationMs / 1_000));
+  const hours = Math.floor(totalSeconds / 3_600);
+  const minutes = Math.floor((totalSeconds % 3_600) / 60);
+  const seconds = totalSeconds % 60;
+  return hours > 0
+    ? `${hours}h${minutes}m${seconds}s`
+    : `${Math.floor(totalSeconds / 60)}m${seconds}s`;
+}
+
 export type SessionIdleSeed = {
   hasConversation: boolean;
   lastActivityAt: number | undefined;
@@ -60,13 +70,18 @@ export class IdleTracker {
     }
   }
 
-  shouldPrompt(now: number): boolean {
-    if (!this.hasConversation || this.lastActivityAt === undefined) return false;
-    if (this.latched || now - this.lastActivityAt > IDLE_THRESHOLD_MS) {
+  getPromptIdleDuration(now: number): number | undefined {
+    if (!this.hasConversation || this.lastActivityAt === undefined) return undefined;
+    const elapsed = now - this.lastActivityAt;
+    if (this.latched || elapsed > IDLE_THRESHOLD_MS) {
       this.latched = true;
-      return true;
+      return Math.max(0, elapsed);
     }
-    return false;
+    return undefined;
+  }
+
+  shouldPrompt(now: number): boolean {
+    return this.getPromptIdleDuration(now) !== undefined;
   }
 
   markActive(): void {

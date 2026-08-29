@@ -3,6 +3,7 @@ import test from "node:test";
 
 import type { ExtensionContext, SessionEntry } from "@earendil-works/pi-coding-agent";
 import {
+  formatIdleDuration,
   getSessionIdleSeed,
   IDLE_THRESHOLD_MS,
   IdleTracker,
@@ -25,6 +26,22 @@ function sessionView(
 
 test("uses a fixed three-minute threshold", () => {
   assert.equal(IDLE_THRESHOLD_MS, 180_000);
+});
+
+test("formats whole-second idle durations with unbounded hours", () => {
+  assert.equal(formatIdleDuration(394_999), "6m34s");
+  assert.equal(formatIdleDuration(360_999), "6m0s");
+  assert.equal(formatIdleDuration((2 * 3_600 + 6 * 60 + 34) * 1_000 + 999), "2h6m34s");
+  assert.equal(formatIdleDuration((2 * 3_600 + 4) * 1_000), "2h0m4s");
+  assert.equal(formatIdleDuration((26 * 3_600 + 1) * 1_000), "26h0m1s");
+});
+
+test("reports elapsed duration from the gate's latched idle origin", () => {
+  const tracker = new IdleTracker();
+  tracker.seed(1_000, true);
+  tracker.observeUserActivity(181_001);
+  tracker.observeUserActivity(200_000);
+  assert.equal(tracker.getPromptIdleDuration(395_999), 394_999);
 });
 
 test("requires strictly more than the threshold", () => {

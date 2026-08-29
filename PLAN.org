@@ -2,6 +2,24 @@
 #+SEQ_TODO: TODO DOING DRAFT WAIT DEFER NOTE | DONE CANCELED
 #+ISSUE_PREFIX: idle
 
+* DONE [#C] Add context-aware idle prompt actions
+:PROPERTIES:
+:OBR_SCHEMA_VERSION: 17
+:ID:       idle-fsu
+:LABELS:   []
+:ISSUE_TYPE: feature
+:CREATED:  [2026-08-28 Fri 23:17]
+:MODIFIED: [2026-08-28 Fri 23:56]
+:CREATED_BY: johnw
+:FINISHED: [2026-08-28 Fri 23:56]
+:CLOSE_REASON: Implemented and verified context gate, elapsed idle display, Enter/c/C replay actions, and all failure paths
+:SOURCE_REPO: pi-idle-check
+:SOURCE_REPO_PATH: /Users/johnw/src/pi-idle-check
+:ORIGINAL_SIZE: 0
+:END:
+
+Gate the existing idle prompt by configurable context usage, report actual elapsed idle time, and add Enter/c/C actions for current send, compact then send, or blank new session then send, with tests and documentation.
+
 * DONE [#B] Implement idle compaction prompt extension
 :PROPERTIES:
 :OBR_SCHEMA_VERSION: 17
