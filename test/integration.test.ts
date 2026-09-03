@@ -9,7 +9,9 @@ import { createTestHost } from "./support/host.ts";
 
 const TEST_THRESHOLD = { unit: "tokens", value: 1 } as const;
 
-function testUi(onChoice?: () => string | undefined): ExtensionUIContext {
+function testUi(
+  onChoice?: () => string | undefined | Promise<string | undefined>,
+): ExtensionUIContext {
   let editorText = "";
   return {
     async custom() {
@@ -70,6 +72,56 @@ test("does not call a provider before the idle decision", async () => {
     assert.equal(hostCallCountAtDialog, 1);
     assert.equal(host.faux.state.callCount, 2);
   } finally {
+    host.cleanup();
+  }
+});
+
+test("send choice becomes steering when agent activates while dialog is open", { timeout: 5_000 }, async () => {
+  let now = 0;
+  let activeStarted!: () => void;
+  let releaseActive!: () => void;
+  const started = new Promise<void>((resolve) => {
+    activeStarted = resolve;
+  });
+  const release = new Promise<void>((resolve) => {
+    releaseActive = resolve;
+  });
+  const host = await createTestHost(
+    [{ name: "idle-check", factory: createPiIdleCheck({ now: () => now, contextThreshold: TEST_THRESHOLD }) }],
+    { extensionPaths: [] },
+  );
+  let background: Promise<void> | undefined;
+  const ui = testUi(async () => {
+    background = host.session.sendUserMessage("background");
+    await started;
+    return SEND_WITHOUT_COMPACTING;
+  });
+
+  host.faux.setResponses([
+    fauxAssistantMessage("first response"),
+    async () => {
+      activeStarted();
+      await release;
+      return fauxAssistantMessage("background response");
+    },
+    fauxAssistantMessage("steering response"),
+  ]);
+
+  try {
+    await host.session.bindExtensions({ mode: "tui", uiContext: ui });
+    await host.session.prompt("first");
+    now = 180_001;
+
+    try {
+      await assert.doesNotReject(() => host.session.prompt("second"));
+    } finally {
+      releaseActive();
+    }
+    await background;
+    assert.equal(host.faux.state.callCount, 3);
+  } finally {
+    releaseActive();
+    await background?.catch(() => {});
     host.cleanup();
   }
 });

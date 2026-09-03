@@ -16,7 +16,7 @@ At 180,000 milliseconds or less, the extension never opens the dialog. User term
 
 The dialog reports actual idle time as a snapshot, floored to whole seconds: for example, `6m34s`, `6m0s`, or `2h6m34s`. Hours are not limited to 23. It then accepts these keys directly:
 
-- **Enter — send** lets the original prompt continue unchanged against the current context.
+- **Enter — send** lets the original prompt continue unchanged against the current context. If the agent starts while the dialog is open, the prompt is re-sent as steering.
 - **`c` — compact + send** withholds the prompt, runs Pi's normal manual compaction, and submits the exact text and images once compaction succeeds.
 - **`C` — new session + send** creates a blank, unparented session and submits the exact prompt there after session replacement completes.
 - **Escape or Ctrl-C — cancel** sends nothing and restores the prompt text to the editor.
@@ -25,7 +25,7 @@ Skill commands and prompt templates retain normal expansion in both replay paths
 
 A dialog, compaction, session replacement, or replay failure fails closed: the prompt is not submitted twice, an error is shown, and prompt text is restored in the active editor when Pi's public UI permits. If another draft appeared meanwhile, both texts are retained. Pi's public editor API cannot restore image attachments after cancellation or failure.
 
-No dialog appears for new or assistant-less sessions, unknown context usage, usage below threshold, active/streaming agents, steering or follow-up messages, print/JSON/RPC modes, RPC input, or extension-injected input.
+Active/streaming input bypasses the dialog: Return remains steering, while Alt-Return remains follow-up. No dialog appears for new or assistant-less sessions, unknown context usage, usage below threshold, print/JSON/RPC modes, RPC input, or extension-injected input.
 
 ## Context threshold configuration
 

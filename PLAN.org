@@ -2,6 +2,24 @@
 #+SEQ_TODO: TODO DOING DRAFT WAIT DEFER NOTE | DONE CANCELED
 #+ISSUE_PREFIX: idle
 
+* DONE [#B] Route active input to steering or follow-up delivery
+:PROPERTIES:
+:OBR_SCHEMA_VERSION: 17
+:ID:       idle-5gp
+:LABELS:   []
+:ISSUE_TYPE: bug
+:CREATED:  [2026-09-02 Wed 00:42]
+:MODIFIED: [2026-09-02 Wed 00:52]
+:CREATED_BY: johnw
+:FINISHED: [2026-09-02 Wed 00:52]
+:CLOSE_REASON: Reproduced active-during-dialog race, rerouted untyped active input as steering, preserved native follow-up delivery, and added unit/integration regressions
+:SOURCE_REPO: pi-idle-check
+:SOURCE_REPO_PATH: /Users/johnw/src/pi-idle-check
+:ORIGINAL_SIZE: 0
+:END:
+
+Prevent idle-choice races from passing an untyped prompt into a newly active agent. Active Return must steer; active Alt-Return must remain follow-up.
+
 * DONE [#C] Add context-aware idle prompt actions
 :PROPERTIES:
 :OBR_SCHEMA_VERSION: 17

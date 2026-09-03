@@ -315,15 +315,15 @@ test("raw user activity resets before idle threshold and latches after it", asyn
   assert.equal(lateContext.dialogCalls, 1);
 });
 
-test("new, active, streaming, RPC, extension, and non-TUI inputs bypass the dialog", async () => {
+test("new, explicit streaming, RPC, extension, and non-TUI inputs bypass the dialog", async () => {
   const cases: Array<{
     entries?: SessionEntry[];
     event?: unknown;
     context?: Parameters<typeof createContext>[2];
   }> = [
     { entries: [] },
-    { context: { idle: false } },
-    { event: inputEvent("next", { streamingBehavior: "steer" }) },
+    { event: inputEvent("next", { streamingBehavior: "steer" }), context: { idle: false } },
+    { event: inputEvent("next", { streamingBehavior: "followUp" }), context: { idle: false } },
     { event: inputEvent("next", { source: "rpc" }) },
     { event: inputEvent("next", { source: "extension" }) },
     { context: { mode: "print", hasUI: false } },
@@ -336,7 +336,25 @@ test("new, active, streaming, RPC, extension, and non-TUI inputs bypass the dial
     const result = await harness.emit("input", testCase.event ?? inputEvent("next"), context.ctx);
     assert.deepEqual(result, { action: "continue" });
     assert.equal(context.dialogCalls, 0);
+    assert.deepEqual(harness.sends, []);
   }
+});
+
+test("active input without a delivery mode is re-sent as steering", async () => {
+  const harness = createHarness(180_001);
+  const context = createContext([assistantEntry(0)], [CANCEL], { idle: false });
+  const image = { type: "image" as const, data: "base64", mimeType: "image/png" };
+  await start(harness, context);
+
+  const result = await harness.emit("input", inputEvent("redirect", { images: [image] }), context.ctx);
+  assert.deepEqual(result, { action: "handled" });
+  assert.equal(context.dialogCalls, 0);
+  assert.deepEqual(harness.sends, [
+    {
+      content: [{ type: "text", text: "redirect" }, image],
+      options: { deliverAs: "steer", expandPromptTemplates: true },
+    },
+  ]);
 });
 
 test("Enter passes original input through without compaction", async () => {

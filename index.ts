@@ -182,11 +182,24 @@ export function createPiIdleCheck(options: PiIdleCheckOptions = {}): (pi: Extens
         event.source !== "interactive" ||
         event.streamingBehavior !== undefined ||
         ctx.mode !== "tui" ||
-        !ctx.hasUI ||
-        !ctx.isIdle()
+        !ctx.hasUI
       ) {
         return { action: "continue" };
       }
+
+      const content: PromptContent = event.images?.length
+        ? [{ type: "text", text: event.text }, ...event.images]
+        : event.text;
+      const sendAsSteer = (): { action: "handled" } => {
+        try {
+          pi.sendUserMessage(content, { deliverAs: "steer", expandPromptTemplates: true });
+        } catch (error) {
+          failPrompt(ctx.ui, event.text, "Steering", error);
+        }
+        return { action: "handled" };
+      };
+
+      if (!ctx.isIdle()) return sendAsSteer();
 
       const timestamp = now();
       const idleDurationMs = tracker.getPromptIdleDuration(timestamp);
@@ -209,16 +222,14 @@ export function createPiIdleCheck(options: PiIdleCheckOptions = {}): (pi: Extens
         return { action: "handled" };
       }
 
-      if (choice === SEND_WITHOUT_COMPACTING) return { action: "continue" };
+      if (choice === SEND_WITHOUT_COMPACTING) {
+        return ctx.isIdle() ? { action: "continue" } : sendAsSteer();
+      }
 
       if (choice === CANCEL || choice === undefined) {
         restorePrompt(ctx.ui, event.text);
         return { action: "handled" };
       }
-
-      const content: PromptContent = event.images?.length
-        ? [{ type: "text", text: event.text }, ...event.images]
-        : event.text;
 
       if (choice === NEW_SESSION_AND_SEND) {
         const pending = { content, prompt: event.text };
