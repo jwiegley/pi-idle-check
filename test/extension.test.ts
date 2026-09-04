@@ -254,9 +254,9 @@ test("registers the handoff command and only required lifecycle handlers", () =>
 
 test("preserves the strict idle-time boundary", async () => {
   for (const [elapsed, expectedCalls] of [
-    [179_999, 0],
-    [180_000, 0],
-    [180_001, 1],
+    [299_999, 0],
+    [300_000, 0],
+    [300_001, 1],
   ] as const) {
     const harness = createHarness(elapsed);
     const context = createContext([assistantEntry(0)], [CANCEL]);
@@ -289,7 +289,7 @@ test("requires known percentage or token usage at or above threshold", async () 
   ];
 
   for (const testCase of cases) {
-    const harness = createHarness(180_001, testCase.threshold);
+    const harness = createHarness(300_001, testCase.threshold);
     const context = createContext([assistantEntry(0)], [CANCEL], { usage: testCase.usage });
     await start(harness, context);
     await harness.emit("input", inputEvent("next"), context.ctx);
@@ -298,19 +298,19 @@ test("requires known percentage or token usage at or above threshold", async () 
 });
 
 test("raw user activity resets before idle threshold and latches after it", async () => {
-  const early = createHarness(179_999);
+  const early = createHarness(299_999);
   const earlyContext = createContext([assistantEntry(0)], [CANCEL]);
   await start(early, earlyContext);
   earlyContext.terminalHandler?.("x");
-  early.setNow(180_001);
+  early.setNow(300_001);
   await early.emit("input", inputEvent("next"), earlyContext.ctx);
   assert.equal(earlyContext.dialogCalls, 0);
 
-  const late = createHarness(180_001);
+  const late = createHarness(300_001);
   const lateContext = createContext([assistantEntry(0)], [CANCEL]);
   await start(late, lateContext);
   lateContext.terminalHandler?.("x");
-  late.setNow(180_002);
+  late.setNow(300_002);
   await late.emit("input", inputEvent("next"), lateContext.ctx);
   assert.equal(lateContext.dialogCalls, 1);
 });
@@ -358,7 +358,7 @@ test("active input without a delivery mode is re-sent as steering", async () => 
 });
 
 test("Enter passes original input through without compaction", async () => {
-  const harness = createHarness(180_001);
+  const harness = createHarness(300_001);
   const context = createContext([assistantEntry(0)], [SEND_WITHOUT_COMPACTING]);
   await start(harness, context);
 
@@ -369,7 +369,7 @@ test("Enter passes original input through without compaction", async () => {
 });
 
 test("cancel restores input without overwriting a newer draft", async () => {
-  const harness = createHarness(180_001);
+  const harness = createHarness(300_001);
   const context = createContext([assistantEntry(0)], [CANCEL], { editorText: "new draft" });
   await start(harness, context);
 
@@ -380,7 +380,7 @@ test("cancel restores input without overwriting a newer draft", async () => {
 });
 
 test("compact withholds, replays exact content once, and preserves a newer draft", async () => {
-  const harness = createHarness(180_001);
+  const harness = createHarness(300_001);
   const context = createContext([assistantEntry(0)], [COMPACT_AND_SEND], { editorText: "new draft" });
   const image = { type: "image" as const, data: "base64", mimeType: "image/png" };
   await start(harness, context);
@@ -413,7 +413,7 @@ test("compact withholds, replays exact content once, and preserves a newer draft
 });
 
 test("compact replay dispatch failure restores prompt and reports error", async () => {
-  const harness = createHarness(180_001);
+  const harness = createHarness(300_001);
   const context = createContext([assistantEntry(0)], [COMPACT_AND_SEND]);
   await start(harness, context);
   await harness.emit("input", inputEvent("original"), context.ctx);
@@ -431,7 +431,7 @@ test("compact replay dispatch failure restores prompt and reports error", async 
 });
 
 test("compaction failure sends nothing, reports error, restores text, and retains decision", async () => {
-  const harness = createHarness(180_001);
+  const harness = createHarness(300_001);
   const context = createContext([assistantEntry(0)], [COMPACT_AND_SEND, CANCEL]);
   await start(harness, context);
 
@@ -448,7 +448,7 @@ test("compaction failure sends nothing, reports error, restores text, and retain
 });
 
 test("dialog errors fail closed and restore prompt", async () => {
-  const harness = createHarness(180_001);
+  const harness = createHarness(300_001);
   const context = createContext([assistantEntry(0)], [new Error("UI unavailable")]);
   await start(harness, context);
 
@@ -460,7 +460,7 @@ test("dialog errors fail closed and restore prompt", async () => {
 });
 
 test("C bridge dispatch failure restores prompt and reports error", async () => {
-  const harness = createHarness(180_001);
+  const harness = createHarness(300_001);
   const context = createContext([assistantEntry(0)], [NEW_SESSION_AND_SEND]);
   harness.failNextSend(new Error("dispatch unavailable"));
   await start(harness, context);
@@ -475,7 +475,7 @@ test("C bridge dispatch failure restores prompt and reports error", async () => 
 });
 
 test("C dispatches public command bridge and replays exact content in replacement session", async () => {
-  const harness = createHarness(180_001);
+  const harness = createHarness(300_001);
   const context = createContext([assistantEntry(0)], [NEW_SESSION_AND_SEND]);
   const image = { type: "image" as const, data: "base64", mimeType: "image/png" };
   await start(harness, context);
@@ -512,7 +512,7 @@ test("C dispatches public command bridge and replays exact content in replacemen
 });
 
 test("new-session cancellation restores prompt without sending", async () => {
-  const harness = createHarness(180_001);
+  const harness = createHarness(300_001);
   const context = createContext([assistantEntry(0)], [NEW_SESSION_AND_SEND]);
   await start(harness, context);
   await harness.emit("input", inputEvent("original"), context.ctx);
@@ -533,7 +533,7 @@ test("new-session cancellation restores prompt without sending", async () => {
 });
 
 test("new-session creation failure restores prompt and reports error", async () => {
-  const harness = createHarness(180_001);
+  const harness = createHarness(300_001);
   const context = createContext([assistantEntry(0)], [NEW_SESSION_AND_SEND]);
   await start(harness, context);
   await harness.emit("input", inputEvent("original"), context.ctx);
@@ -554,7 +554,7 @@ test("new-session creation failure restores prompt and reports error", async () 
 });
 
 test("new-session replay failure restores prompt in replacement editor", async () => {
-  const harness = createHarness(180_001);
+  const harness = createHarness(300_001);
   const oldContext = createContext([assistantEntry(0)], [NEW_SESSION_AND_SEND]);
   const replacementContext = createContext([]);
   await start(harness, oldContext);
@@ -582,7 +582,7 @@ test("new-session replay failure restores prompt in replacement editor", async (
 });
 
 test("agent and compaction settlement restart idle interval", async () => {
-  const harness = createHarness(180_001);
+  const harness = createHarness(300_001);
   const context = createContext([assistantEntry(0)], [CANCEL]);
   await start(harness, context);
 
@@ -592,12 +592,12 @@ test("agent and compaction settlement restart idle interval", async () => {
   assert.equal(context.dialogCalls, 0);
 
   await harness.emit("agent_settled", { type: "agent_settled" }, context.ctx);
-  harness.setNow(1_080_000);
+  harness.setNow(1_200_000);
   await harness.emit("input", inputEvent("boundary"), context.ctx);
   assert.equal(context.dialogCalls, 0);
 
   await harness.emit("session_compact", { type: "session_compact" }, context.ctx);
-  harness.setNow(1_260_001);
+  harness.setNow(1_500_001);
   await harness.emit("input", inputEvent("after compact"), context.ctx);
   assert.equal(context.dialogCalls, 1);
 });

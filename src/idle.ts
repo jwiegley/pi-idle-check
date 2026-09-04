@@ -1,6 +1,6 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
-export const IDLE_THRESHOLD_MS = 180_000;
+export const IDLE_THRESHOLD_MS = 300_000;
 export const SESSION_LOOKBACK_LIMIT = 64;
 
 export function formatIdleDuration(durationMs: number): string {
@@ -61,27 +61,27 @@ export class IdleTracker {
     this.latched = false;
   }
 
-  observeUserActivity(now: number): void {
+  observeUserActivity(now: number, thresholdMs = IDLE_THRESHOLD_MS): void {
     if (!this.hasConversation || this.lastActivityAt === undefined || this.latched) return;
-    if (now - this.lastActivityAt > IDLE_THRESHOLD_MS) {
+    if (now - this.lastActivityAt > thresholdMs) {
       this.latched = true;
     } else {
       this.lastActivityAt = now;
     }
   }
 
-  getPromptIdleDuration(now: number): number | undefined {
+  getPromptIdleDuration(now: number, thresholdMs = IDLE_THRESHOLD_MS): number | undefined {
     if (!this.hasConversation || this.lastActivityAt === undefined) return undefined;
     const elapsed = now - this.lastActivityAt;
-    if (this.latched || elapsed > IDLE_THRESHOLD_MS) {
+    if (this.latched || elapsed > thresholdMs) {
       this.latched = true;
       return Math.max(0, elapsed);
     }
     return undefined;
   }
 
-  shouldPrompt(now: number): boolean {
-    return this.getPromptIdleDuration(now) !== undefined;
+  shouldPrompt(now: number, thresholdMs = IDLE_THRESHOLD_MS): boolean {
+    return this.getPromptIdleDuration(now, thresholdMs) !== undefined;
   }
 
   markActive(): void {

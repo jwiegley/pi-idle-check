@@ -124,7 +124,7 @@ async function replayExpandedInput(options: {
       ...(options.skills === undefined ? {} : { skills: options.skills }),
     },
   );
-  now = seedCompactableSession(host) + 180_001;
+  now = seedCompactableSession(host) + 300_001;
   host.faux.setResponses([
     fauxAssistantMessage("summary"),
     (context) => {
@@ -198,7 +198,7 @@ test("tool activity starts idle time only after the full tool loop settles", asy
     await host.session.prompt("run the tool");
     assert.equal(toolRuns, 1);
 
-    now = 680_000;
+    now = 800_000;
     await host.session.prompt("at the strict boundary");
     assert.equal(ui.selectCalls, 0);
     assert.equal(host.faux.state.callCount, 3);
@@ -232,7 +232,7 @@ test("automatic retry starts idle time only after the recovered run settles", as
   try {
     await host.session.bindExtensions({ mode: "tui", uiContext: ui.ui });
     await host.session.prompt("retry me");
-    now = 880_000;
+    now = 1_000_000;
     await host.session.prompt("at the strict boundary");
     assert.equal(ui.selectCalls, 0);
     assert.equal(host.faux.state.callCount, 3);
@@ -258,7 +258,7 @@ test("real extension reload reseeds the idle decision from persisted entries", a
     ],
     { extensionPaths: [] },
   );
-  now = seedCompactableSession(host) + 180_001;
+  now = seedCompactableSession(host) + 300_001;
   const ui = selectionUi(CANCEL);
 
   try {
@@ -394,7 +394,7 @@ test(
       await runtime.session.prompt("persist this session");
       const originalSessionFile = runtime.session.sessionFile;
       assert.ok(originalSessionFile);
-      now = Date.parse(runtime.session.sessionManager.getLeafEntry()?.timestamp ?? "") + 180_001;
+      now = Date.parse(runtime.session.sessionManager.getLeafEntry()?.timestamp ?? "") + 300_001;
 
       await runtime.session.prompt("/handoff value", { images: [image] });
       const templateReplayDidStart = await Promise.race([
@@ -429,7 +429,7 @@ test(
         });
       assert.deepEqual(replacementUserTexts.map((text) => text.trim()), ["NEW_SESSION_TEMPLATE:value"]);
 
-      now += 180_001;
+      now += 300_001;
       await runtime.session.prompt("/skill:audit details");
       const skillReplayDidStart = await Promise.race([
         skillReplayStarting.then(() => true),

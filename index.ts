@@ -1,19 +1,26 @@
 import type { ExtensionAPI, ExtensionUIContext } from "@earendil-works/pi-coding-agent";
 import { matchesKey } from "@earendil-works/pi-tui";
 import {
-  loadContextThreshold,
+  loadIdleCheckConfig,
   meetsContextThreshold,
+  resolveIdleThresholdMs,
   type ContextThreshold,
+  type IdleCheckConfig,
 } from "./src/config.ts";
 import { formatIdleDuration, getSessionIdleSeed, IdleTracker } from "./src/idle.ts";
 
 export {
   CONFIG_FILE_NAME,
   DEFAULT_CONTEXT_THRESHOLD,
+  DEFAULT_IDLE_THRESHOLD_MINUTES,
   loadContextThreshold,
+  loadIdleCheckConfig,
   meetsContextThreshold,
   parseContextThreshold,
+  parseIdleCheckConfig,
+  resolveIdleThresholdMs,
   type ContextThreshold,
+  type IdleCheckConfig,
 } from "./src/config.ts";
 export { formatIdleDuration, getSessionIdleSeed, IDLE_THRESHOLD_MS, IdleTracker } from "./src/idle.ts";
 
@@ -95,6 +102,7 @@ export function createPiIdleCheck(options: PiIdleCheckOptions = {}): (pi: Extens
   return (pi: ExtensionAPI): void => {
     const tracker = new IdleTracker();
     let contextThreshold: ContextThreshold | undefined;
+    let idleCheckConfig: IdleCheckConfig | undefined;
     let pendingNewSession: { content: PromptContent; prompt: string } | undefined;
     let pendingReplay: { prompt: string; ui: ExtensionUIContext } | undefined;
     let removeTerminalListener: (() => void) | undefined;
@@ -133,10 +141,12 @@ export function createPiIdleCheck(options: PiIdleCheckOptions = {}): (pi: Extens
     pi.on("session_start", (_event, ctx) => {
       removeTerminalListener?.();
       try {
-        contextThreshold =
-          options.contextThreshold ?? loadContextThreshold(ctx.cwd, ctx.isProjectTrusted());
+        const config = loadIdleCheckConfig(ctx.cwd, ctx.isProjectTrusted());
+        contextThreshold = options.contextThreshold ?? config.contextThreshold;
+        idleCheckConfig = config;
       } catch (error) {
         contextThreshold = undefined;
+        idleCheckConfig = undefined;
         ctx.ui.notify(`Idle check disabled: ${describeError(error)}`, "error");
       }
 
@@ -146,7 +156,12 @@ export function createPiIdleCheck(options: PiIdleCheckOptions = {}): (pi: Extens
       removeTerminalListener =
         ctx.mode === "tui"
           ? ctx.ui.onTerminalInput(() => {
-              if (ctx.isIdle()) tracker.observeUserActivity(now());
+              if (ctx.isIdle() && idleCheckConfig !== undefined) {
+                tracker.observeUserActivity(
+                  now(),
+                  resolveIdleThresholdMs(idleCheckConfig, ctx.model?.provider),
+                );
+              }
               return undefined;
             })
           : undefined;
@@ -156,6 +171,7 @@ export function createPiIdleCheck(options: PiIdleCheckOptions = {}): (pi: Extens
       removeTerminalListener?.();
       removeTerminalListener = undefined;
       contextThreshold = undefined;
+      idleCheckConfig = undefined;
       pendingNewSession = undefined;
       pendingReplay = undefined;
       tracker.reset();
@@ -202,9 +218,14 @@ export function createPiIdleCheck(options: PiIdleCheckOptions = {}): (pi: Extens
       if (!ctx.isIdle()) return sendAsSteer();
 
       const timestamp = now();
-      const idleDurationMs = tracker.getPromptIdleDuration(timestamp);
+      const idleThresholdMs =
+        idleCheckConfig === undefined
+          ? undefined
+          : resolveIdleThresholdMs(idleCheckConfig, ctx.model?.provider);
+      const idleDurationMs =
+        idleThresholdMs === undefined ? undefined : tracker.getPromptIdleDuration(timestamp, idleThresholdMs);
       if (idleDurationMs === undefined) {
-        tracker.observeUserActivity(timestamp);
+        if (idleThresholdMs !== undefined) tracker.observeUserActivity(timestamp, idleThresholdMs);
         return { action: "continue" };
       }
       if (

@@ -24,8 +24,16 @@ function sessionView(
   } as Pick<ExtensionContext["sessionManager"], "getLeafEntry" | "getEntry">;
 }
 
-test("uses a fixed three-minute threshold", () => {
-  assert.equal(IDLE_THRESHOLD_MS, 180_000);
+test("uses a fixed five-minute threshold", () => {
+  assert.equal(IDLE_THRESHOLD_MS, 300_000);
+});
+
+test("uses a supplied provider-specific threshold", () => {
+  const tracker = new IdleTracker();
+  const providerThresholdMs = 600_000;
+  tracker.seed(0, true);
+  assert.equal(tracker.shouldPrompt(providerThresholdMs, providerThresholdMs), false);
+  assert.equal(tracker.shouldPrompt(providerThresholdMs + 1, providerThresholdMs), true);
 });
 
 test("formats whole-second idle durations with unbounded hours", () => {
@@ -39,16 +47,19 @@ test("formats whole-second idle durations with unbounded hours", () => {
 test("reports elapsed duration from the gate's latched idle origin", () => {
   const tracker = new IdleTracker();
   tracker.seed(1_000, true);
-  tracker.observeUserActivity(181_001);
-  tracker.observeUserActivity(200_000);
-  assert.equal(tracker.getPromptIdleDuration(395_999), 394_999);
+  tracker.observeUserActivity(1_001 + IDLE_THRESHOLD_MS);
+  tracker.observeUserActivity(20_000 + IDLE_THRESHOLD_MS);
+  assert.equal(
+    tracker.getPromptIdleDuration(200_001 + IDLE_THRESHOLD_MS),
+    199_001 + IDLE_THRESHOLD_MS,
+  );
 });
 
 test("requires strictly more than the threshold", () => {
   for (const [elapsed, expected] of [
-    [179_999, false],
-    [180_000, false],
-    [180_001, true],
+    [IDLE_THRESHOLD_MS - 1, false],
+    [IDLE_THRESHOLD_MS, false],
+    [IDLE_THRESHOLD_MS + 1, true],
   ] as const) {
     const tracker = new IdleTracker();
     tracker.seed(1_000, true);
@@ -65,30 +76,30 @@ test("does not prompt without a prior conversation", () => {
 test("pre-threshold user activity restarts idle time", () => {
   const tracker = new IdleTracker();
   tracker.seed(0, true);
-  tracker.observeUserActivity(179_999);
-  assert.equal(tracker.shouldPrompt(180_001), false);
-  assert.equal(tracker.shouldPrompt(179_999 + IDLE_THRESHOLD_MS + 1), true);
+  tracker.observeUserActivity(IDLE_THRESHOLD_MS - 1);
+  assert.equal(tracker.shouldPrompt(IDLE_THRESHOLD_MS + 1), false);
+  assert.equal(tracker.shouldPrompt(2 * IDLE_THRESHOLD_MS), true);
 });
 
 test("activity after threshold latches the pending decision", () => {
   const tracker = new IdleTracker();
   tracker.seed(0, true);
-  tracker.observeUserActivity(180_001);
-  tracker.observeUserActivity(180_002);
-  assert.equal(tracker.shouldPrompt(180_002), true);
+  tracker.observeUserActivity(IDLE_THRESHOLD_MS + 1);
+  tracker.observeUserActivity(IDLE_THRESHOLD_MS + 2);
+  assert.equal(tracker.shouldPrompt(IDLE_THRESHOLD_MS + 2), true);
 });
 
 test("model activity clears a latch until the run settles", () => {
   const tracker = new IdleTracker();
   tracker.seed(0, true);
-  assert.equal(tracker.shouldPrompt(180_001), true);
+  assert.equal(tracker.shouldPrompt(IDLE_THRESHOLD_MS + 1), true);
 
   tracker.markActive();
   assert.equal(tracker.shouldPrompt(900_000), false);
 
   tracker.markSettled(900_000);
-  assert.equal(tracker.shouldPrompt(1_080_000), false);
-  assert.equal(tracker.shouldPrompt(1_080_001), true);
+  assert.equal(tracker.shouldPrompt(900_000 + IDLE_THRESHOLD_MS), false);
+  assert.equal(tracker.shouldPrompt(900_001 + IDLE_THRESHOLD_MS), true);
 });
 
 test("resume seed uses persisted session activity and ignores extension state entries", () => {

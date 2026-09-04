@@ -67,7 +67,7 @@ test("does not call a provider before the idle decision", async () => {
     await host.session.prompt("first");
     assert.equal(host.faux.state.callCount, 1);
 
-    now = 180_001;
+    now = 300_001;
     await host.session.prompt("second");
     assert.equal(hostCallCountAtDialog, 1);
     assert.equal(host.faux.state.callCount, 2);
@@ -110,7 +110,7 @@ test("send choice becomes steering when agent activates while dialog is open", {
   try {
     await host.session.bindExtensions({ mode: "tui", uiContext: ui });
     await host.session.prompt("first");
-    now = 180_001;
+    now = 300_001;
 
     try {
       await assert.doesNotReject(() => host.session.prompt("second"));
@@ -160,7 +160,7 @@ test("real compaction completes before exact prompt replay", { timeout: 5_000 },
     usage,
   });
   host.session.agent.state.messages = host.sessionManager.buildSessionContext().messages;
-  now = Date.parse(host.sessionManager.getBranch().at(-1)?.timestamp ?? "") + 180_001;
+  now = Date.parse(host.sessionManager.getBranch().at(-1)?.timestamp ?? "") + 300_001;
   host.faux.setResponses([fauxAssistantMessage("summary"), fauxAssistantMessage("replayed response")]);
 
   const ui = testUi(() => {

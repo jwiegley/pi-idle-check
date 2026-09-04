@@ -9,10 +9,10 @@ The dialog is eligible only when all of these are true:
 - the active session contains a completed assistant response;
 - Pi is in interactive TUI mode and receives typed user input;
 - Pi has fully settled, including tools, retries, automatic compaction, and queued continuations;
-- observable idle time is strictly greater than 180,000 milliseconds; and
+- observable idle time is strictly greater than the configured idle delay (five minutes by default); and
 - Pi reports known context usage at or above the configured threshold.
 
-At 180,000 milliseconds or less, the extension never opens the dialog. User terminal activity before the threshold restarts the idle interval. Once the interval has crossed the threshold, eligibility latches so returning and typing a prompt does not erase the warning.
+At the configured delay or less, the extension never opens the dialog. User terminal activity before the threshold restarts the idle interval. Once the interval has crossed the threshold, eligibility latches so returning and typing a prompt does not erase the warning.
 
 The dialog reports actual idle time as a snapshot, floored to whole seconds: for example, `6m34s`, `6m0s`, or `2h6m34s`. Hours are not limited to 23. It then accepts these keys directly:
 
@@ -27,14 +27,33 @@ A dialog, compaction, session replacement, or replay failure fails closed: the p
 
 Active/streaming input bypasses the dialog: Return remains steering, while Alt-Return remains follow-up. No dialog appears for new or assistant-less sessions, unknown context usage, usage below threshold, print/JSON/RPC modes, RPC input, or extension-injected input.
 
-## Context threshold configuration
+## Configuration
 
-The default threshold is 5% of the active model's context window. Configuration is read at session start from:
+Configuration is read at session start from:
 
 1. `~/.pi/agent/pi-idle-check.json` (more precisely, Pi's `getAgentDir()`);
-2. `.pi/pi-idle-check.json` in a trusted project, which overrides the global file.
+2. `.pi/pi-idle-check.json` in a trusted project.
 
-Use a percentage string:
+The agent-global file is the base. A trusted project file merges over it: scalar settings replace global values only when present, and provider entries replace only the same provider's global entry. Changes take effect after `/reload` or another session start; files are not watched live. A malformed or unreadable configured file produces a clear error and disables interception for that session rather than guessing.
+
+### Idle delay
+
+The built-in idle delay is five minutes. Set `idleThresholdMinutes` to a positive whole number to change the delay for all providers. Use `providerIdleThresholdMinutes` to override individual Pi provider IDs; a matching provider entry wins over the global delay.
+
+```json
+{
+  "idleThresholdMinutes": 3,
+  "providerIdleThresholdMinutes": {
+    "openai-codex": 10
+  }
+}
+```
+
+This example waits three minutes for other providers and ten minutes for `openai-codex`. Missing configuration uses the five-minute built-in default.
+
+### Context threshold
+
+The default threshold is 5% of the active model's context window. Use a percentage string:
 
 ```json
 {"contextThreshold":"5%"}
@@ -45,8 +64,6 @@ Percentages may be positive decimals through 100%. Or use a positive integer tok
 ```json
 {"contextThreshold":50000}
 ```
-
-A missing file uses the next available scope or the 5% default. A malformed or unreadable effective file produces a clear error and disables interception for that session rather than guessing. Changes take effect after `/reload` or another session start; files are not watched live.
 
 Percentage comparison uses `ctx.getContextUsage().percent`; absolute comparison uses `ctx.getContextUsage().tokens`. Equality meets the threshold.
 

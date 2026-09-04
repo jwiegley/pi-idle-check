@@ -7,9 +7,13 @@ import test from "node:test";
 import {
   CONFIG_FILE_NAME,
   DEFAULT_CONTEXT_THRESHOLD,
+  DEFAULT_IDLE_THRESHOLD_MINUTES,
   loadContextThreshold,
+  loadIdleCheckConfig,
   meetsContextThreshold,
   parseContextThreshold,
+  parseIdleCheckConfig,
+  resolveIdleThresholdMs,
 } from "../src/config.ts";
 
 test("parses percentage and absolute token thresholds", () => {
@@ -27,7 +31,7 @@ test("parses percentage and absolute token thresholds", () => {
   });
 });
 
-test("rejects malformed threshold configuration", () => {
+test("rejects malformed context threshold configuration", () => {
   for (const config of [
     null,
     {},
@@ -43,7 +47,37 @@ test("rejects malformed threshold configuration", () => {
   }
 });
 
-test("loads default, global, and trusted project thresholds in precedence order", () => {
+test("parses global and provider idle-delay configuration", () => {
+  assert.deepEqual(
+    parseIdleCheckConfig({
+      contextThreshold: "7.5%",
+      idleThresholdMinutes: 3,
+      providerIdleThresholdMinutes: { "openai-codex": 10 },
+    }),
+    {
+      contextThreshold: { unit: "percent", value: 7.5 },
+      idleThresholdMinutes: 3,
+      providerIdleThresholdMinutes: { "openai-codex": 10 },
+    },
+  );
+});
+
+test("rejects malformed idle-delay configuration", () => {
+  for (const config of [
+    null,
+    {},
+    { unknown: true },
+    { idleThresholdMinutes: 0 },
+    { idleThresholdMinutes: 1.5 },
+    { providerIdleThresholdMinutes: null },
+    { providerIdleThresholdMinutes: { "": 10 } },
+    { providerIdleThresholdMinutes: { "openai-codex": "10" } },
+  ]) {
+    assert.throws(() => parseIdleCheckConfig(config), { name: "Error" });
+  }
+});
+
+test("loads merged global and trusted project configuration", () => {
   const root = mkdtempSync(join(tmpdir(), "pi-idle-config-test-"));
   const agentDir = join(root, "agent");
   const cwd = join(root, "project");
@@ -52,33 +86,44 @@ test("loads default, global, and trusted project thresholds in precedence order"
   mkdirSync(projectDir, { recursive: true });
 
   try {
-    assert.deepEqual(loadContextThreshold(cwd, true, agentDir), DEFAULT_CONTEXT_THRESHOLD);
-
-    writeFileSync(join(agentDir, CONFIG_FILE_NAME), '{"contextThreshold":50000}');
-    assert.deepEqual(loadContextThreshold(cwd, true, agentDir), {
-      unit: "tokens",
-      value: 50_000,
+    assert.deepEqual(loadIdleCheckConfig(cwd, true, agentDir), {
+      contextThreshold: DEFAULT_CONTEXT_THRESHOLD,
+      idleThresholdMinutes: DEFAULT_IDLE_THRESHOLD_MINUTES,
+      providerIdleThresholdMinutes: {},
     });
 
-    writeFileSync(join(projectDir, CONFIG_FILE_NAME), '{"contextThreshold":"7.5%"}');
-    assert.deepEqual(loadContextThreshold(cwd, true, agentDir), {
-      unit: "percent",
-      value: 7.5,
+    writeFileSync(
+      join(agentDir, CONFIG_FILE_NAME),
+      '{"contextThreshold":50000,"idleThresholdMinutes":3,"providerIdleThresholdMinutes":{"openai-codex":10}}',
+    );
+    assert.deepEqual(loadIdleCheckConfig(cwd, true, agentDir), {
+      contextThreshold: { unit: "tokens", value: 50_000 },
+      idleThresholdMinutes: 3,
+      providerIdleThresholdMinutes: { "openai-codex": 10 },
     });
 
-    writeFileSync(join(agentDir, CONFIG_FILE_NAME), "not json");
-    assert.deepEqual(loadContextThreshold(cwd, true, agentDir), {
-      unit: "percent",
-      value: 7.5,
+    writeFileSync(
+      join(projectDir, CONFIG_FILE_NAME),
+      '{"idleThresholdMinutes":4,"providerIdleThresholdMinutes":{"openai-codex":12,"anthropic":7}}',
+    );
+    const merged = loadIdleCheckConfig(cwd, true, agentDir);
+    assert.deepEqual(merged, {
+      contextThreshold: { unit: "tokens", value: 50_000 },
+      idleThresholdMinutes: 4,
+      providerIdleThresholdMinutes: { "openai-codex": 12, anthropic: 7 },
     });
-    writeFileSync(join(agentDir, CONFIG_FILE_NAME), '{"contextThreshold":50000}');
+    assert.equal(resolveIdleThresholdMs(merged, "openai-codex"), 720_000);
+    assert.equal(resolveIdleThresholdMs(merged, "unmatched-provider"), 240_000);
+    assert.equal(loadContextThreshold(cwd, true, agentDir).value, 50_000);
 
-    writeFileSync(join(projectDir, CONFIG_FILE_NAME), "not json");
-    assert.deepEqual(loadContextThreshold(cwd, false, agentDir), {
-      unit: "tokens",
-      value: 50_000,
+    assert.deepEqual(loadIdleCheckConfig(cwd, false, agentDir), {
+      contextThreshold: { unit: "tokens", value: 50_000 },
+      idleThresholdMinutes: 3,
+      providerIdleThresholdMinutes: { "openai-codex": 10 },
     });
-    assert.throws(() => loadContextThreshold(cwd, true, agentDir), /invalid .*pi-idle-check\.json/);
+
+    writeFileSync(join(projectDir, CONFIG_FILE_NAME), '{"idleThresholdMinutes":0}');
+    assert.throws(() => loadIdleCheckConfig(cwd, true, agentDir), /invalid .*pi-idle-check\.json/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
