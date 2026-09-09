@@ -56,6 +56,24 @@ Gate the existing idle prompt by configurable context usage, report actual elaps
 
 Build and verify the standalone pi-idle-check Pi extension. After more than three minutes of pure observable idle time, intercept an interactive prompt and offer compact-before-send, send-now, or cancel without paid-provider tests.
 
+* DONE [#C] Round displayed context percentage up
+:PROPERTIES:
+:OBR_SCHEMA_VERSION: 17
+:ID:       idle-mti
+:LABELS:   []
+:ISSUE_TYPE: bug
+:CREATED:  [2026-09-09 Wed 13:14]
+:MODIFIED: [2026-09-09 Wed 13:16]
+:CREATED_BY: johnw
+:FINISHED: [2026-09-09 Wed 13:16]
+:CLOSE_REASON: Current context percentage now rounds upward to a whole percent; configured percentage remains exact; regression and full package checks pass.
+:SOURCE_REPO: pi-idle-check
+:SOURCE_REPO_PATH: /Users/johnw/src/sys/pi-idle-check
+:ORIGINAL_SIZE: 0
+:END:
+
+Render current percentage usage as a ceiling-rounded whole percent while preserving exact configured percentage thresholds; add regression coverage for observed floating-point value.
+
 * DONE [#B] Bound resume history inspection for Nix gallery
 :PROPERTIES:
 :OBR_SCHEMA_VERSION: 17
