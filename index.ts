@@ -92,8 +92,8 @@ async function chooseIdleAction(
 ): Promise<IdlePromptChoice | undefined> {
   const relation = contextValue === threshold.value ? "meets" : "exceeds";
   const current =
-    threshold.unit === "percent" && relation === "exceeds"
-      ? `${Math.ceil(contextValue)}%`
+    threshold.unit === "percent"
+      ? `${contextValue.toFixed(1)}%`
       : formatContextValue(contextValue, threshold.unit);
   const context = `${current} context ${relation} ${formatContextValue(threshold.value, threshold.unit)}`;
 

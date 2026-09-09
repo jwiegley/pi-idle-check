@@ -56,6 +56,24 @@ Gate the existing idle prompt by configurable context usage, report actual elaps
 
 Build and verify the standalone pi-idle-check Pi extension. After more than three minutes of pure observable idle time, intercept an interactive prompt and offer compact-before-send, send-now, or cancel without paid-provider tests.
 
+* DONE [#C] Show current context percentage to one decimal place
+:PROPERTIES:
+:OBR_SCHEMA_VERSION: 17
+:ID:       idle-jgb
+:LABELS:   []
+:ISSUE_TYPE: bug
+:CREATED:  [2026-09-09 Wed 14:09]
+:MODIFIED: [2026-09-09 Wed 14:11]
+:CREATED_BY: johnw
+:FINISHED: [2026-09-09 Wed 14:11]
+:CLOSE_REASON: Current percentage usage now uses Pi's one-decimal toFixed(1) display; thresholds and token formatting remain exact; all 54 tests, typecheck, and pack check pass.
+:SOURCE_REPO: pi-idle-check
+:SOURCE_REPO_PATH: /Users/johnw/src/sys/pi-idle-check
+:ORIGINAL_SIZE: 0
+:END:
+
+Match Pi's footer by rendering current percentage usage with toFixed(1), while preserving exact configured thresholds and token formatting.
+
 * DONE [#C] Round displayed context percentage up
 :PROPERTIES:
 :OBR_SCHEMA_VERSION: 17

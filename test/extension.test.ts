@@ -283,12 +283,12 @@ test("dialog reports current context against the configured threshold", async ()
     {
       threshold: { unit: "percent", value: 5 },
       usage: { ...DEFAULT_USAGE, percent: 20.930476190476192 },
-      expected: "Session idle for 5m0s; 21% context exceeds 5%",
+      expected: "Session idle for 5m0s; 20.9% context exceeds 5%",
     },
     {
       threshold: { unit: "percent", value: 5 },
       usage: { ...DEFAULT_USAGE, percent: 5 },
-      expected: "Session idle for 5m0s; 5% context meets 5%",
+      expected: "Session idle for 5m0s; 5.0% context meets 5%",
     },
     {
       threshold: { unit: "percent", value: 7.5 },
