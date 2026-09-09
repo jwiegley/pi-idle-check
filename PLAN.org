@@ -90,6 +90,24 @@ Replace sessionManager.getBranch() with a fixed-size parent-entry lookback so au
 ]
 #+end_src
 
+* DONE [#C] Report context limit in idle warning
+:PROPERTIES:
+:OBR_SCHEMA_VERSION: 17
+:ID:       idle-zey
+:LABELS:   []
+:ISSUE_TYPE: feature
+:CREATED:  [2026-09-09 Wed 11:29]
+:MODIFIED: [2026-09-09 Wed 11:36]
+:CREATED_BY: johnw
+:FINISHED: [2026-09-09 Wed 11:36]
+:CLOSE_REASON: Implemented context usage/threshold reporting with truthful equality wording, regression tests, and documentation.
+:SOURCE_REPO: pi-idle-check
+:SOURCE_REPO_PATH: /Users/johnw/src/sys/pi-idle-check
+:ORIGINAL_SIZE: 0
+:END:
+
+Show actual context usage and configured threshold in the idle confirmation dialog, with truthful above/equality wording, tests, and README documentation.
+
 * DONE [#B] Fix audit gaps in resume semantics and integration coverage
 :PROPERTIES:
 :OBR_SCHEMA_VERSION: 17

@@ -274,6 +274,48 @@ test("dialog reports the actual elapsed idle duration", async () => {
   assert.match(context.dialogLines.join("\n"), /Session idle for 6m34s/);
 });
 
+test("dialog reports current context against the configured threshold", async () => {
+  const cases: Array<{
+    threshold: ContextThreshold;
+    usage: ContextUsage;
+    expected: string;
+  }> = [
+    {
+      threshold: { unit: "percent", value: 5 },
+      usage: { ...DEFAULT_USAGE, percent: 74 },
+      expected: "Session idle for 5m0s; 74% context exceeds 5%",
+    },
+    {
+      threshold: { unit: "percent", value: 5 },
+      usage: { ...DEFAULT_USAGE, percent: 5 },
+      expected: "Session idle for 5m0s; 5% context meets 5%",
+    },
+    {
+      threshold: { unit: "tokens", value: 50_000 },
+      usage: { ...DEFAULT_USAGE, tokens: 285_000 },
+      expected: "Session idle for 5m0s; 285k context exceeds 50k",
+    },
+    {
+      threshold: { unit: "tokens", value: 50_000 },
+      usage: { ...DEFAULT_USAGE, tokens: 50_000 },
+      expected: "Session idle for 5m0s; 50k context meets 50k",
+    },
+    {
+      threshold: { unit: "tokens", value: 50_001 },
+      usage: { ...DEFAULT_USAGE, tokens: 50_001 },
+      expected: "Session idle for 5m0s; 50001 context meets 50001",
+    },
+  ];
+
+  for (const testCase of cases) {
+    const harness = createHarness(300_001, testCase.threshold);
+    const context = createContext([assistantEntry(0)], [CANCEL], { usage: testCase.usage });
+    await start(harness, context);
+    await harness.emit("input", inputEvent("next"), context.ctx);
+    assert.equal(context.dialogLines[0], testCase.expected);
+  }
+});
+
 test("requires known percentage or token usage at or above threshold", async () => {
   const cases: Array<{
     threshold: ContextThreshold;

@@ -79,13 +79,23 @@ export function idlePromptChoice(data: string): IdlePromptChoice | undefined {
   return undefined;
 }
 
+function formatContextValue(value: number, unit: ContextThreshold["unit"]): string {
+  if (unit === "percent") return `${value}%`;
+  return value % 1_000 === 0 ? `${value / 1_000}k` : String(value);
+}
+
 async function chooseIdleAction(
   ui: ExtensionUIContext,
   idleDurationMs: number,
+  threshold: ContextThreshold,
+  contextValue: number,
 ): Promise<IdlePromptChoice | undefined> {
+  const relation = contextValue === threshold.value ? "meets" : "exceeds";
+  const context = `${formatContextValue(contextValue, threshold.unit)} context ${relation} ${formatContextValue(threshold.value, threshold.unit)}`;
+
   return ui.custom<IdlePromptChoice | undefined>((_tui, theme, _keybindings, done) => ({
     render: () => [
-      theme.fg("warning", `Session idle for ${formatIdleDuration(idleDurationMs)}; context threshold reached`),
+      theme.fg("warning", `Session idle for ${formatIdleDuration(idleDurationMs)}; ${context}`),
       `${theme.bold("Enter")} send · ${theme.bold("c")} compact + send · ${theme.bold("C")} new session + send · ${theme.bold("Esc")} cancel`,
     ],
     handleInput(data) {
@@ -228,16 +238,26 @@ export function createPiIdleCheck(options: PiIdleCheckOptions = {}): (pi: Extens
         if (idleThresholdMs !== undefined) tracker.observeUserActivity(timestamp, idleThresholdMs);
         return { action: "continue" };
       }
+      const threshold = contextThreshold;
+      const usage = ctx.getContextUsage();
+      const contextValue =
+        threshold === undefined
+          ? undefined
+          : threshold.unit === "percent"
+            ? usage?.percent
+            : usage?.tokens;
       if (
-        contextThreshold === undefined ||
-        !meetsContextThreshold(contextThreshold, ctx.getContextUsage())
+        threshold === undefined ||
+        contextValue === undefined ||
+        contextValue === null ||
+        !meetsContextThreshold(threshold, usage)
       ) {
         return { action: "continue" };
       }
 
       let choice: IdlePromptChoice | undefined;
       try {
-        choice = await chooseIdleAction(ctx.ui, idleDurationMs);
+        choice = await chooseIdleAction(ctx.ui, idleDurationMs, threshold, contextValue);
       } catch (error) {
         failPrompt(ctx.ui, event.text, "Idle check", error);
         return { action: "handled" };
