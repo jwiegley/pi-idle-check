@@ -16,18 +16,14 @@ import {
   resolveIdleThresholdMs,
 } from "../src/config.ts";
 
-test("parses percentage and absolute token thresholds", () => {
-  assert.deepEqual(parseContextThreshold({ contextThreshold: "5%" }), {
+test("parses integer percentage thresholds", () => {
+  assert.deepEqual(parseContextThreshold({ contextThreshold: 10 }), {
     unit: "percent",
-    value: 5,
+    value: 10,
   });
-  assert.deepEqual(parseContextThreshold({ contextThreshold: ".25%" }), {
+  assert.deepEqual(parseContextThreshold({ contextThreshold: 100 }), {
     unit: "percent",
-    value: 0.25,
-  });
-  assert.deepEqual(parseContextThreshold({ contextThreshold: 50_000 }), {
-    unit: "tokens",
-    value: 50_000,
+    value: 100,
   });
 });
 
@@ -35,13 +31,12 @@ test("rejects malformed context threshold configuration", () => {
   for (const config of [
     null,
     {},
-    { contextThreshold: "5%", extra: true },
-    { contextThreshold: "0%" },
-    { contextThreshold: "100.1%" },
-    { contextThreshold: " 5%" },
+    { contextThreshold: 5, extra: true },
     { contextThreshold: 0 },
+    { contextThreshold: 101 },
     { contextThreshold: 1.5 },
-    { contextThreshold: "50000" },
+    { contextThreshold: "10%" },
+    { contextThreshold: "10" },
   ]) {
     assert.throws(() => parseContextThreshold(config), { name: "Error" });
   }
@@ -50,12 +45,12 @@ test("rejects malformed context threshold configuration", () => {
 test("parses global and provider idle-delay configuration", () => {
   assert.deepEqual(
     parseIdleCheckConfig({
-      contextThreshold: "7.5%",
+      contextThreshold: 10,
       idleThresholdMinutes: 3,
       providerIdleThresholdMinutes: { "openai-codex": 10 },
     }),
     {
-      contextThreshold: { unit: "percent", value: 7.5 },
+      contextThreshold: { unit: "percent", value: 10 },
       idleThresholdMinutes: 3,
       providerIdleThresholdMinutes: { "openai-codex": 10 },
     },
@@ -94,10 +89,10 @@ test("loads merged global and trusted project configuration", () => {
 
     writeFileSync(
       join(agentDir, CONFIG_FILE_NAME),
-      '{"contextThreshold":50000,"idleThresholdMinutes":3,"providerIdleThresholdMinutes":{"openai-codex":10}}',
+      '{"contextThreshold":10,"idleThresholdMinutes":3,"providerIdleThresholdMinutes":{"openai-codex":10}}',
     );
     assert.deepEqual(loadIdleCheckConfig(cwd, true, agentDir), {
-      contextThreshold: { unit: "tokens", value: 50_000 },
+      contextThreshold: { unit: "percent", value: 10 },
       idleThresholdMinutes: 3,
       providerIdleThresholdMinutes: { "openai-codex": 10 },
     });
@@ -108,16 +103,16 @@ test("loads merged global and trusted project configuration", () => {
     );
     const merged = loadIdleCheckConfig(cwd, true, agentDir);
     assert.deepEqual(merged, {
-      contextThreshold: { unit: "tokens", value: 50_000 },
+      contextThreshold: { unit: "percent", value: 10 },
       idleThresholdMinutes: 4,
       providerIdleThresholdMinutes: { "openai-codex": 12, anthropic: 7 },
     });
     assert.equal(resolveIdleThresholdMs(merged, "openai-codex"), 720_000);
     assert.equal(resolveIdleThresholdMs(merged, "unmatched-provider"), 240_000);
-    assert.equal(loadContextThreshold(cwd, true, agentDir).value, 50_000);
+    assert.equal(loadContextThreshold(cwd, true, agentDir).value, 10);
 
     assert.deepEqual(loadIdleCheckConfig(cwd, false, agentDir), {
-      contextThreshold: { unit: "tokens", value: 50_000 },
+      contextThreshold: { unit: "percent", value: 10 },
       idleThresholdMinutes: 3,
       providerIdleThresholdMinutes: { "openai-codex": 10 },
     });

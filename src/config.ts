@@ -33,18 +33,20 @@ export function parseContextThreshold(config: unknown): ContextThreshold {
     Object.keys(config).length !== 1 ||
     !("contextThreshold" in config)
   ) {
-    throw new Error('expected exactly {"contextThreshold":"5%"} or {"contextThreshold":50000}');
+    throw new Error('expected exactly {"contextThreshold":5}');
   }
 
   const value = config.contextThreshold;
-  if (typeof value === "number") {
-    if (Number.isSafeInteger(value) && value > 0) return { unit: "tokens", value };
-  } else if (typeof value === "string" && /^(?:\d+(?:\.\d+)?|\.\d+)%$/.test(value)) {
-    const percent = Number(value.slice(0, -1));
-    if (percent > 0 && percent <= 100) return { unit: "percent", value: percent };
+  if (
+    typeof value === "number" &&
+    Number.isSafeInteger(value) &&
+    value > 0 &&
+    value <= 100
+  ) {
+    return { unit: "percent", value };
   }
 
-  throw new Error("contextThreshold must be a positive integer token count or a percentage above 0% and at most 100%");
+  throw new Error("contextThreshold must be an integer percentage from 1 through 100");
 }
 
 function parseIdleThresholdMinutes(value: unknown, name: string): number {

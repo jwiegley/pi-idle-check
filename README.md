@@ -53,19 +53,13 @@ This example waits three minutes for other providers and ten minutes for `openai
 
 ### Context threshold
 
-The default threshold is 5% of the active model's context window. Use a percentage string:
+The default threshold is 5% of the active model's context window. Set `contextThreshold` to an integer percentage from 1 through 100:
 
 ```json
-{"contextThreshold":"5%"}
+{"contextThreshold":10}
 ```
 
-Percentages may be positive decimals through 100%. Or use a positive integer token count:
-
-```json
-{"contextThreshold":50000}
-```
-
-Percentage comparison uses `ctx.getContextUsage().percent`; absolute comparison uses `ctx.getContextUsage().tokens`. Equality meets the threshold.
+Comparison uses `ctx.getContextUsage().percent`. Equality meets the threshold.
 
 ## Idle and resume semantics
 

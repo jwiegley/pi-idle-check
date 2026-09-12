@@ -56,6 +56,24 @@ Gate the existing idle prompt by configurable context usage, report actual elaps
 
 Build and verify the standalone pi-idle-check Pi extension. After more than three minutes of pure observable idle time, intercept an interactive prompt and offer compact-before-send, send-now, or cancel without paid-provider tests.
 
+* DONE [#C] Use numeric percentages for context thresholds
+:PROPERTIES:
+:OBR_SCHEMA_VERSION: 17
+:ID:       idle-iqn
+:LABELS:   []
+:ISSUE_TYPE: bug
+:CREATED:  [2026-09-11 Fri 20:38]
+:MODIFIED: [2026-09-11 Fri 20:41]
+:CREATED_BY: johnw
+:FINISHED: [2026-09-11 Fri 20:41]
+:CLOSE_REASON: Context configuration now accepts integer percentages from 1 through 100; regression, full suite, typecheck, and package checks pass.
+:SOURCE_REPO: pi-idle-check
+:SOURCE_REPO_PATH: /Users/johnw/src/sys/pi-idle-check
+:ORIGINAL_SIZE: 0
+:END:
+
+Change contextThreshold JSON configuration from percentage strings/absolute token integers to an integer percentage from 1 through 100. Update tests and documentation.
+
 * DONE [#C] Show current context percentage to one decimal place
 :PROPERTIES:
 :OBR_SCHEMA_VERSION: 17
