@@ -15,10 +15,16 @@ export type ContextThreshold =
   | { unit: "percent"; value: number }
   | { unit: "tokens"; value: number };
 
-export type IdleCheckConfig = {
+export type IdleCheckSettings = {
+  enabled: boolean;
   contextThreshold: ContextThreshold;
   idleThresholdMinutes: number;
+};
+
+export type IdleCheckConfig = IdleCheckSettings & {
   providerIdleThresholdMinutes: Record<string, number>;
+  providers: Record<string, Partial<IdleCheckSettings>>;
+  models: Record<string, Partial<IdleCheckSettings>>;
 };
 
 type IdleCheckConfigFile = Partial<IdleCheckConfig>;
@@ -61,35 +67,59 @@ function parseIdleThresholdMinutes(value: unknown, name: string): number {
   return value;
 }
 
+function parseIdleCheckSettings(config: unknown, name: string): Partial<IdleCheckSettings> {
+  if (typeof config !== "object" || config === null || Array.isArray(config)) {
+    throw new Error(`${name} must be an object`);
+  }
+  const parsed: Partial<IdleCheckSettings> = {};
+  for (const [key, value] of Object.entries(config)) {
+    switch (key) {
+      case "enabled":
+        if (typeof value !== "boolean") throw new Error(`${name}.enabled must be a boolean`);
+        parsed.enabled = value;
+        break;
+      case "contextThreshold":
+        parsed.contextThreshold = parseContextThreshold({ contextThreshold: value });
+        break;
+      case "idleThresholdMinutes":
+        parsed.idleThresholdMinutes = parseIdleThresholdMinutes(value, `${name}.${key}`);
+        break;
+      default:
+        throw new Error(`unknown setting ${name}.${key}`);
+    }
+  }
+  return parsed;
+}
+
+function parseOverrides(
+  value: unknown,
+  name: "providers" | "models",
+): Record<string, Partial<IdleCheckSettings>> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error(`${name} must be an object keyed by ${name === "providers" ? "provider ID" : "provider/model ID"}`);
+  }
+  return Object.fromEntries(
+    Object.entries(value).map(([key, settings]) => {
+      if (key.trim().length === 0) throw new Error(`${name} keys must be non-empty IDs`);
+      if (name === "models" && (key.indexOf("/") <= 0 || key.indexOf("/") === key.length - 1)) {
+        throw new Error("models keys must be provider/model IDs");
+      }
+      return [key, parseIdleCheckSettings(settings, `${name}.${key}`)];
+    }),
+  );
+}
+
 export function parseIdleCheckConfig(config: unknown): IdleCheckConfigFile {
   if (typeof config !== "object" || config === null || Array.isArray(config)) {
     throw new Error("expected a JSON object");
   }
-
-  const entries = Object.entries(config);
-  if (entries.length === 0) throw new Error("expected at least one configuration setting");
-  for (const [key] of entries) {
-    if (
-      key !== "contextThreshold" &&
-      key !== "idleThresholdMinutes" &&
-      key !== "providerIdleThresholdMinutes"
-    ) {
-      throw new Error(`unknown setting ${key}`);
-    }
-  }
-
-  const parsed: IdleCheckConfigFile = {};
-  if ("contextThreshold" in config) {
-    parsed.contextThreshold = parseContextThreshold({ contextThreshold: config.contextThreshold });
-  }
-  if ("idleThresholdMinutes" in config) {
-    parsed.idleThresholdMinutes = parseIdleThresholdMinutes(
-      config.idleThresholdMinutes,
-      "idleThresholdMinutes",
-    );
-  }
+  if (Object.keys(config).length === 0) throw new Error("expected at least one configuration setting");
+  const { providers, models, providerIdleThresholdMinutes, ...settings } = config as Record<string, unknown>;
+  const parsed: IdleCheckConfigFile = parseIdleCheckSettings(settings, "configuration");
+  if ("providers" in config) parsed.providers = parseOverrides(providers, "providers");
+  if ("models" in config) parsed.models = parseOverrides(models, "models");
   if ("providerIdleThresholdMinutes" in config) {
-    const providerOverrides = config.providerIdleThresholdMinutes;
+    const providerOverrides = providerIdleThresholdMinutes;
     if (
       typeof providerOverrides !== "object" ||
       providerOverrides === null ||
@@ -142,6 +172,7 @@ export function loadIdleCheckConfig(
     : undefined;
 
   return {
+    enabled: project?.enabled ?? global?.enabled ?? true,
     contextThreshold: project?.contextThreshold ?? global?.contextThreshold ?? DEFAULT_CONTEXT_THRESHOLD,
     idleThresholdMinutes:
       project?.idleThresholdMinutes ?? global?.idleThresholdMinutes ?? DEFAULT_IDLE_THRESHOLD_MINUTES,
@@ -149,6 +180,8 @@ export function loadIdleCheckConfig(
       ...global?.providerIdleThresholdMinutes,
       ...project?.providerIdleThresholdMinutes,
     },
+    providers: { ...global?.providers, ...project?.providers },
+    models: { ...global?.models, ...project?.models },
   };
 }
 
@@ -161,11 +194,33 @@ export function loadContextThreshold(
   return loadIdleCheckConfig(cwd, projectTrusted, agentDir, configDirName).contextThreshold;
 }
 
-export function resolveIdleThresholdMs(config: IdleCheckConfig, provider: string | undefined): number {
-  const minutes =
-    (provider === undefined ? undefined : config.providerIdleThresholdMinutes[provider]) ??
-    config.idleThresholdMinutes;
-  return minutes * 60_000;
+function getOverride<T>(overrides: Record<string, T>, key: string | undefined): T | undefined {
+  return key !== undefined && Object.hasOwn(overrides, key) ? overrides[key] : undefined;
+}
+
+export function resolveIdleCheckSettings(
+  config: IdleCheckConfig,
+  provider: string | undefined,
+  modelId?: string,
+): IdleCheckSettings {
+  const modelKey = provider !== undefined && modelId !== undefined ? `${provider}/${modelId}` : undefined;
+  return {
+    enabled: config.enabled,
+    contextThreshold: config.contextThreshold,
+    idleThresholdMinutes:
+      getOverride(config.providerIdleThresholdMinutes, provider) ?? config.idleThresholdMinutes,
+    ...getOverride(config.providers, provider),
+    ...getOverride(config.models, modelKey),
+  };
+}
+
+export function resolveIdleThresholdMs(
+  config: IdleCheckConfig,
+  provider: string | undefined,
+  modelId?: string,
+): number {
+  const settings = resolveIdleCheckSettings(config, provider, modelId);
+  return settings.enabled ? settings.idleThresholdMinutes * 60_000 : Infinity;
 }
 
 export function meetsContextThreshold(

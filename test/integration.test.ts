@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { fauxAssistantMessage } from "@earendil-works/pi-ai";
 import type { ExtensionUIContext } from "@earendil-works/pi-coding-agent";
-import { COMPACT_AND_SEND, createPiIdleCheck, SEND_WITHOUT_COMPACTING } from "../index.ts";
+import { CANCEL, COMPACT_AND_SEND, CONFIG_FILE_NAME, createPiIdleCheck, SEND_WITHOUT_COMPACTING } from "../index.ts";
 import { createTestHost } from "./support/host.ts";
 
 const TEST_THRESHOLD = { unit: "tokens", value: 1 } as const;
@@ -45,6 +47,60 @@ test("loads the packaged extension without errors", async () => {
       "session_shutdown",
       "session_start",
     ]);
+  } finally {
+    host.cleanup();
+  }
+});
+
+test("real host applies model limits, then provider disabling after reload", async () => {
+  let now = 0;
+  let dialogs = 0;
+  const host = await createTestHost(
+    [{ name: "idle-check", factory: createPiIdleCheck({ now: () => now }) }],
+    { extensionPaths: [] },
+  );
+  const model = host.faux.getModel();
+  const response = fauxAssistantMessage("response with known usage");
+  const tokens = Math.ceil(model.contextWindow * 0.02);
+  response.usage = { ...response.usage, input: tokens, totalTokens: tokens };
+  host.faux.setResponses([response, response, response]);
+  const ui = testUi(() => {
+    dialogs++;
+    return CANCEL;
+  });
+  try {
+    mkdirSync(join(host.root, ".pi"));
+    const path = join(host.root, ".pi", CONFIG_FILE_NAME);
+    const config = {
+      enabled: true, idleThresholdMinutes: 1, contextThreshold: 100,
+      providers: { [model.provider]: { enabled: false } },
+    };
+    writeFileSync(path, JSON.stringify({
+      ...config,
+      models: {
+        [`${model.provider}/${model.id}`]: {
+          enabled: true, idleThresholdMinutes: 2, contextThreshold: 1,
+        },
+      },
+    }));
+    await host.session.bindExtensions({ mode: "tui", uiContext: ui });
+    await host.session.prompt("first");
+    now = 120_000;
+    await host.session.prompt("at model boundary");
+    assert.equal(dialogs, 0);
+    assert.equal(host.faux.state.callCount, 2);
+
+    now = 240_001;
+    await host.session.prompt("above model boundary");
+    assert.equal(dialogs, 1);
+    assert.equal(host.faux.state.callCount, 2);
+
+    writeFileSync(path, JSON.stringify(config));
+    await host.session.reload();
+    now = Date.now() + 3_600_000;
+    await host.session.prompt("disabled provider after reload");
+    assert.equal(dialogs, 1);
+    assert.equal(host.faux.state.callCount, 3);
   } finally {
     host.cleanup();
   }

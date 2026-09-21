@@ -13,7 +13,9 @@ import {
   meetsContextThreshold,
   parseContextThreshold,
   parseIdleCheckConfig,
+  resolveIdleCheckSettings,
   resolveIdleThresholdMs,
+  type IdleCheckConfig,
 } from "../src/config.ts";
 
 test("parses integer percentage thresholds", () => {
@@ -57,6 +59,89 @@ test("parses global and provider idle-delay configuration", () => {
   );
 });
 
+test("parses provider and provider-qualified model settings", () => {
+  assert.deepEqual(
+    parseIdleCheckConfig({
+      enabled: false,
+      providers: {
+        "omlx-hera": { enabled: false },
+        cloud: { idleThresholdMinutes: 10, contextThreshold: 20 },
+      },
+      models: { "cloud/org/model": { enabled: true, idleThresholdMinutes: 2, contextThreshold: 1 } },
+    }),
+    {
+      enabled: false,
+      providers: {
+        "omlx-hera": { enabled: false },
+        cloud: { idleThresholdMinutes: 10, contextThreshold: { unit: "percent", value: 20 } },
+      },
+      models: {
+        "cloud/org/model": {
+          enabled: true, idleThresholdMinutes: 2, contextThreshold: { unit: "percent", value: 1 },
+        },
+      },
+    },
+  );
+});
+
+test("rejects malformed scoped settings rather than silently ignoring them", () => {
+  for (const scope of ["providers", "models"]) {
+    const key = scope === "providers" ? "cloud" : "cloud/model";
+    for (const value of [null, [], false, 10, { "": {} }]) {
+      assert.throws(() => parseIdleCheckConfig({ [scope]: value }));
+    }
+    for (const settings of [
+      null, [], false, { enabled: "false" }, { enabled: 0 }, { contextThreshold: 0 },
+      { contextThreshold: 101 }, { contextThreshold: 1.5 }, { contextThreshold: "10%" },
+      { idleThresholdMinutes: 0 }, { idleThresholdMinutes: -1 }, { idleThresholdMinutes: 1.5 },
+      { idleThresholdMinutes: Infinity }, { idleThresholdMinutes: Number.MAX_SAFE_INTEGER },
+      { unknown: 1 }, { models: {} },
+    ]) {
+      assert.throws(() => parseIdleCheckConfig({ [scope]: { [key]: settings } }));
+    }
+  }
+  for (const key of ["model", "/model", "provider/", " "]) {
+    assert.throws(() => parseIdleCheckConfig({ models: { [key]: {} } }), /keys must/);
+  }
+  assert.throws(() => parseIdleCheckConfig({ enabled: "false" }), /enabled must be a boolean/);
+});
+
+test("resolves each setting from defaults, legacy delay, provider, then model", () => {
+  const config: IdleCheckConfig = {
+    enabled: true,
+    idleThresholdMinutes: 5,
+    contextThreshold: DEFAULT_CONTEXT_THRESHOLD,
+    providerIdleThresholdMinutes: { cloud: 8, legacy: 9 },
+    providers: {
+      cloud: { idleThresholdMinutes: 10, contextThreshold: { unit: "percent", value: 20 } },
+      "omlx-hera": { enabled: false },
+    },
+    models: {
+      "cloud/fast": { idleThresholdMinutes: 2 },
+      "cloud/org/model": { contextThreshold: { unit: "percent", value: 30 } },
+      "cloud/off": { enabled: false },
+      "omlx-hera/exception": { enabled: true, idleThresholdMinutes: 1 },
+    },
+  };
+  const defaults = { enabled: true, idleThresholdMinutes: 5, contextThreshold: DEFAULT_CONTEXT_THRESHOLD };
+  for (const provider of [undefined, "unknown", "constructor", "__proto__"]) {
+    assert.deepEqual(resolveIdleCheckSettings(config, provider, "fast"), defaults);
+  }
+  assert.equal(resolveIdleThresholdMs(config, "legacy"), 540_000);
+  assert.equal(resolveIdleThresholdMs(config, "cloud", "missing"), 600_000);
+  assert.deepEqual(resolveIdleCheckSettings(config, "cloud", "fast"), {
+    enabled: true, idleThresholdMinutes: 2, contextThreshold: { unit: "percent", value: 20 },
+  });
+  assert.deepEqual(resolveIdleCheckSettings(config, "cloud", "org/model"), {
+    enabled: true, idleThresholdMinutes: 10, contextThreshold: { unit: "percent", value: 30 },
+  });
+  assert.equal(resolveIdleThresholdMs(config, "omlx-hera", "anything"), Infinity);
+  assert.equal(resolveIdleThresholdMs(config, "cloud", "off"), Infinity);
+  assert.equal(resolveIdleThresholdMs(config, "omlx-hera", "exception"), 60_000);
+  assert.equal(resolveIdleThresholdMs({ ...config, enabled: false }, "cloud", "fast"), Infinity);
+  assert.equal(resolveIdleThresholdMs({ ...config, enabled: false }, "omlx-hera", "exception"), 60_000);
+});
+
 test("rejects malformed idle-delay configuration", () => {
   for (const config of [
     null,
@@ -82,6 +167,9 @@ test("loads merged global and trusted project configuration", () => {
 
   try {
     assert.deepEqual(loadIdleCheckConfig(cwd, true, agentDir), {
+      enabled: true,
+      providers: {},
+      models: {},
       contextThreshold: DEFAULT_CONTEXT_THRESHOLD,
       idleThresholdMinutes: DEFAULT_IDLE_THRESHOLD_MINUTES,
       providerIdleThresholdMinutes: {},
@@ -92,6 +180,9 @@ test("loads merged global and trusted project configuration", () => {
       '{"contextThreshold":10,"idleThresholdMinutes":3,"providerIdleThresholdMinutes":{"openai-codex":10}}',
     );
     assert.deepEqual(loadIdleCheckConfig(cwd, true, agentDir), {
+      enabled: true,
+      providers: {},
+      models: {},
       contextThreshold: { unit: "percent", value: 10 },
       idleThresholdMinutes: 3,
       providerIdleThresholdMinutes: { "openai-codex": 10 },
@@ -103,6 +194,9 @@ test("loads merged global and trusted project configuration", () => {
     );
     const merged = loadIdleCheckConfig(cwd, true, agentDir);
     assert.deepEqual(merged, {
+      enabled: true,
+      providers: {},
+      models: {},
       contextThreshold: { unit: "percent", value: 10 },
       idleThresholdMinutes: 4,
       providerIdleThresholdMinutes: { "openai-codex": 12, anthropic: 7 },
@@ -112,12 +206,55 @@ test("loads merged global and trusted project configuration", () => {
     assert.equal(loadContextThreshold(cwd, true, agentDir).value, 10);
 
     assert.deepEqual(loadIdleCheckConfig(cwd, false, agentDir), {
+      enabled: true,
+      providers: {},
+      models: {},
       contextThreshold: { unit: "percent", value: 10 },
       idleThresholdMinutes: 3,
       providerIdleThresholdMinutes: { "openai-codex": 10 },
     });
 
     writeFileSync(join(projectDir, CONFIG_FILE_NAME), '{"idleThresholdMinutes":0}');
+    assert.throws(() => loadIdleCheckConfig(cwd, true, agentDir), /invalid .*pi-idle-check\.json/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("trusted project maps replace matching entries and retain other global entries", () => {
+  const root = mkdtempSync(join(tmpdir(), "pi-idle-overrides-test-"));
+  const agentDir = join(root, "agent");
+  const cwd = join(root, "project");
+  mkdirSync(agentDir, { recursive: true });
+  mkdirSync(join(cwd, ".pi"), { recursive: true });
+  try {
+    writeFileSync(join(agentDir, CONFIG_FILE_NAME), JSON.stringify({
+      enabled: false,
+      providers: {
+        cloud: { enabled: false, idleThresholdMinutes: 10 },
+        "omlx-hera": { enabled: false },
+      },
+      models: { "cloud/model": { enabled: false }, "cloud/retained": { idleThresholdMinutes: 8 } },
+    }));
+    const global = loadIdleCheckConfig(cwd, false, agentDir);
+    writeFileSync(join(cwd, ".pi", CONFIG_FILE_NAME), JSON.stringify({
+      enabled: true,
+      providers: { cloud: { contextThreshold: 20 } },
+      models: { "cloud/model": {} },
+    }));
+    assert.deepEqual(loadIdleCheckConfig(cwd, false, agentDir), global);
+    const merged = loadIdleCheckConfig(cwd, true, agentDir);
+    assert.deepEqual(merged.providers, {
+      cloud: { contextThreshold: { unit: "percent", value: 20 } },
+      "omlx-hera": { enabled: false },
+    });
+    assert.deepEqual(merged.models, { "cloud/model": {}, "cloud/retained": { idleThresholdMinutes: 8 } });
+    assert.deepEqual(resolveIdleCheckSettings(merged, "cloud", "model"), {
+      enabled: true, idleThresholdMinutes: 5, contextThreshold: { unit: "percent", value: 20 },
+    });
+    assert.equal(resolveIdleThresholdMs(merged, "cloud", "retained"), 480_000);
+    writeFileSync(join(cwd, ".pi", CONFIG_FILE_NAME), '{"providers":{"cloud":{"enabled":"false"}}}');
+    assert.deepEqual(loadIdleCheckConfig(cwd, false, agentDir), global);
     assert.throws(() => loadIdleCheckConfig(cwd, true, agentDir), /invalid .*pi-idle-check\.json/);
   } finally {
     rmSync(root, { recursive: true, force: true });

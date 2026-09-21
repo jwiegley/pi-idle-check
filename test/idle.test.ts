@@ -36,6 +36,18 @@ test("uses a supplied provider-specific threshold", () => {
   assert.equal(tracker.shouldPrompt(providerThresholdMs + 1, providerThresholdMs), true);
 });
 
+test("changing the threshold invalidates an old latch without discarding elapsed time", () => {
+  const tracker = new IdleTracker();
+  tracker.seed(0, true);
+  tracker.observeUserActivity(300_001);
+  assert.equal(tracker.shouldPrompt(300_002, 600_000), false);
+  assert.equal(tracker.getPromptIdleDuration(600_001, 600_000), 600_001);
+  assert.equal(tracker.shouldPrompt(600_002, Infinity), false);
+  tracker.observeUserActivity(600_003, Infinity);
+  assert.equal(tracker.shouldPrompt(900_003), false);
+  assert.equal(tracker.shouldPrompt(900_004), true);
+});
+
 test("formats whole-second idle durations with unbounded hours", () => {
   assert.equal(formatIdleDuration(394_999), "6m34s");
   assert.equal(formatIdleDuration(360_999), "6m0s");

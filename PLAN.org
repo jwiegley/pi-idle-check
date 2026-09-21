@@ -2,6 +2,24 @@
 #+SEQ_TODO: TODO DOING DRAFT WAIT DEFER NOTE | DONE CANCELED
 #+ISSUE_PREFIX: idle
 
+* DONE [#C] Configure idle-check limits per provider and model
+:PROPERTIES:
+:OBR_SCHEMA_VERSION: 17
+:ID:       idle-1ik
+:LABELS:   []
+:ISSUE_TYPE: feature
+:CREATED:  [2026-09-20 Sun 21:44]
+:MODIFIED: [2026-09-20 Sun 21:56]
+:CREATED_BY: johnw
+:FINISHED: [2026-09-20 Sun 21:56]
+:CLOSE_REASON: Added validated provider/model limit overrides and enabled flags, preserved legacy provider delays, handled live model switches and stale latches, and documented precedence. npm run check passes: 62 tests, typecheck, package dry run.
+:SOURCE_REPO: pi-idle-check
+:SOURCE_REPO_PATH: /Users/johnw/src/sys/pi-idle-check
+:ORIGINAL_SIZE: 0
+:END:
+
+Allow time/context limits and disabling idle checks for a provider or model; preserve global defaults and document precedence.
+
 * DONE [#B] Route active input to steering or follow-up delivery
 :PROPERTIES:
 :OBR_SCHEMA_VERSION: 17

@@ -52,20 +52,22 @@ export function getSessionIdleSeed(
 export class IdleTracker {
   private hasConversation = false;
   private lastActivityAt: number | undefined;
-  private latched = false;
+  private latchedThresholdMs: number | undefined;
 
   seed(lastActivityAt: number | undefined, hasConversation: boolean): void {
     this.hasConversation = hasConversation;
     this.lastActivityAt =
       lastActivityAt !== undefined && Number.isFinite(lastActivityAt) ? lastActivityAt : undefined;
-    this.latched = false;
+    this.latchedThresholdMs = undefined;
   }
 
   observeUserActivity(now: number, thresholdMs = IDLE_THRESHOLD_MS): void {
-    if (!this.hasConversation || this.lastActivityAt === undefined || this.latched) return;
+    if (!this.hasConversation || this.lastActivityAt === undefined) return;
+    if (this.latchedThresholdMs === thresholdMs) return;
     if (now - this.lastActivityAt > thresholdMs) {
-      this.latched = true;
+      this.latchedThresholdMs = thresholdMs;
     } else {
+      this.latchedThresholdMs = undefined;
       this.lastActivityAt = now;
     }
   }
@@ -73,10 +75,12 @@ export class IdleTracker {
   getPromptIdleDuration(now: number, thresholdMs = IDLE_THRESHOLD_MS): number | undefined {
     if (!this.hasConversation || this.lastActivityAt === undefined) return undefined;
     const elapsed = now - this.lastActivityAt;
-    if (this.latched || elapsed > thresholdMs) {
-      this.latched = true;
+    // A model switch can raise the delay or disable the check; an old latch must not win.
+    if (this.latchedThresholdMs === thresholdMs || elapsed > thresholdMs) {
+      this.latchedThresholdMs = thresholdMs;
       return Math.max(0, elapsed);
     }
+    this.latchedThresholdMs = undefined;
     return undefined;
   }
 
@@ -86,18 +90,18 @@ export class IdleTracker {
 
   markActive(): void {
     this.lastActivityAt = undefined;
-    this.latched = false;
+    this.latchedThresholdMs = undefined;
   }
 
   markSettled(now: number): void {
     this.hasConversation = true;
     this.lastActivityAt = now;
-    this.latched = false;
+    this.latchedThresholdMs = undefined;
   }
 
   reset(): void {
     this.hasConversation = false;
     this.lastActivityAt = undefined;
-    this.latched = false;
+    this.latchedThresholdMs = undefined;
   }
 }

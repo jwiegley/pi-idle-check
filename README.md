@@ -6,6 +6,7 @@
 
 The dialog is eligible only when all of these are true:
 
+- idle checks are enabled for the active provider and model;
 - the active session contains a completed assistant response;
 - Pi is in interactive TUI mode and receives typed user input;
 - Pi has fully settled, including tools, retries, automatic compaction, and queued continuations;
@@ -34,11 +35,11 @@ Configuration is read at session start from:
 1. `~/.pi/agent/pi-idle-check.json` (more precisely, Pi's `getAgentDir()`);
 2. `.pi/pi-idle-check.json` in a trusted project.
 
-The agent-global file is the base. A trusted project file merges over it: scalar settings replace global values only when present, and provider entries replace only the same provider's global entry. Changes take effect after `/reload` or another session start; files are not watched live. A malformed or unreadable configured file produces a clear error and disables interception for that session rather than guessing.
+The agent-global file is the base. A trusted project file merges over it: scalar settings replace global values only when present, and entries in `providers`, `models`, and `providerIdleThresholdMinutes` replace only the matching global entry. Each matching entry is replaced as a whole, not merged field by field. In `providers` and `models`, an empty `{}` entry restores inheritance from less-specific settings. Changes take effect after `/reload` or another session start; files are not watched live. A malformed or unreadable configured file produces a clear error and disables interception for that session rather than guessing.
 
 ### Idle delay
 
-The built-in idle delay is five minutes. Set `idleThresholdMinutes` to a positive whole number to change the delay for all providers. Use `providerIdleThresholdMinutes` to override individual Pi provider IDs; a matching provider entry wins over the global delay.
+The built-in idle delay is five minutes. Set `idleThresholdMinutes` to a positive whole number to change the default delay. The existing `providerIdleThresholdMinutes` setting remains supported; new configurations can use `providers` below to override both limits together.
 
 ```json
 {
@@ -60,6 +61,39 @@ The default threshold is 5% of the active model's context window. Set `contextTh
 ```
 
 Comparison uses `ctx.getContextUsage().percent`. Equality meets the threshold.
+
+### Provider and model overrides
+
+Use `providers` for exact Pi provider IDs and `models` for exact `provider/model-id` keys. Model IDs may contain additional slashes; bare model names and wildcard patterns are not supported. Each entry accepts `idleThresholdMinutes`, `contextThreshold`, and `enabled`. Thresholds have the same units and validation as the defaults above.
+
+```json
+{
+  "idleThresholdMinutes": 5,
+  "contextThreshold": 5,
+  "providers": {
+    "omlx-hera": { "enabled": false },
+    "openai-codex": { "idleThresholdMinutes": 10, "contextThreshold": 20 }
+  },
+  "models": {
+    "openai-codex/my-model-id": { "idleThresholdMinutes": 2, "contextThreshold": 10 },
+    "openai-codex/another-model-id": { "enabled": false }
+  }
+}
+```
+
+Replace the example model IDs with the IDs configured in Pi. This configuration disables interception for every `omlx-hera` model and for `openai-codex/another-model-id`, while giving the remaining matches their specified limits.
+
+Each setting resolves independently, from least to most specific:
+
+1. Built-in defaults: enabled, five minutes, 5% context.
+2. Top-level configuration.
+3. `providerIdleThresholdMinutes` for the active provider (idle delay only).
+4. The matching `providers` entry.
+5. The matching `models` entry.
+
+Omitted settings inherit from the preceding level. `enabled: false` bypasses interception entirely; a more-specific `enabled: true` can re-enable it, including for one model under a disabled provider. Top-level `enabled: false` disables checks by default. A disabled entry still requires valid thresholds if they are supplied.
+
+Both terminal activity and prompt submission use the currently selected model. Switching models applies the matching limits immediately; a latched decision from a shorter delay does not override a longer or disabled limit.
 
 ## Idle and resume semantics
 

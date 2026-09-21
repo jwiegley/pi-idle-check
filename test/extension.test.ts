@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 
 import type {
@@ -12,6 +15,7 @@ import type {
 import {
   CANCEL,
   COMPACT_AND_SEND,
+  CONFIG_FILE_NAME,
   createPiIdleCheck,
   idlePromptChoice,
   NEW_SESSION_AND_SEND,
@@ -44,6 +48,8 @@ type Harness = {
   emit(event: string, payload: unknown, ctx: ExtensionContext): Promise<unknown>;
 };
 
+type TestModel = Pick<NonNullable<ExtensionContext["model"]>, "provider" | "id">;
+
 type ContextHarness = {
   ctx: ExtensionContext;
   compactOptions: CompactOptions;
@@ -53,9 +59,20 @@ type ContextHarness = {
   notifications: Array<{ message: string; type: string | undefined }>;
   terminalHandler: Parameters<ExtensionUIContext["onTerminalInput"]>[0] | undefined;
   setIdle(value: boolean): void;
+  setModel(value: TestModel | undefined): void;
 };
 
 const DEFAULT_USAGE: ContextUsage = { tokens: 50_000, contextWindow: 1_000_000, percent: 5 };
+
+// Exercise file configuration without inheriting the developer's agent-global settings.
+const agentDir = mkdtempSync(join(tmpdir(), "pi-idle-extension-agent-"));
+const previousAgentDir = process.env.PI_CODING_AGENT_DIR;
+process.env.PI_CODING_AGENT_DIR = agentDir;
+test.after(() => {
+  if (previousAgentDir === undefined) delete process.env.PI_CODING_AGENT_DIR;
+  else process.env.PI_CODING_AGENT_DIR = previousAgentDir;
+  rmSync(agentDir, { recursive: true, force: true });
+});
 
 function assistantEntry(timestamp: number): SessionEntry {
   return {
@@ -86,7 +103,7 @@ function inputEvent(
 
 function createHarness(
   initialNow = 0,
-  contextThreshold: ContextThreshold = { unit: "percent", value: 5 },
+  contextThreshold?: ContextThreshold,
 ): Harness {
   let currentNow = initialNow;
   const commands = new Map<string, CommandHandler>();
@@ -112,7 +129,10 @@ function createHarness(
     },
   } as unknown as ExtensionAPI;
 
-  createPiIdleCheck({ now: () => currentNow, contextThreshold })(api);
+  createPiIdleCheck({
+    now: () => currentNow,
+    ...(contextThreshold === undefined ? {} : { contextThreshold }),
+  })(api);
 
   return {
     commands,
@@ -136,6 +156,8 @@ function createContext(
   entries: SessionEntry[],
   choices: Array<string | undefined | Error> = [],
   options: {
+    cwd?: string;
+    model?: TestModel;
     mode?: ExtensionContext["mode"];
     hasUI?: boolean;
     idle?: boolean;
@@ -143,6 +165,7 @@ function createContext(
     usage?: ContextUsage | undefined;
   } = {},
 ): ContextHarness {
+  let model = options.model;
   let idle = options.idle ?? true;
   let editorText = options.editorText ?? "";
   let compactOptions: CompactOptions;
@@ -184,7 +207,10 @@ function createContext(
 
   const entriesById = new Map(entries.map((entry) => [entry.id, entry]));
   const ctx = {
-    cwd: "/project",
+    cwd: options.cwd ?? "/project",
+    get model() {
+      return model;
+    },
     mode: options.mode ?? "tui",
     hasUI: options.hasUI ?? true,
     ui,
@@ -221,6 +247,9 @@ function createContext(
     setIdle(value) {
       idle = value;
     },
+    setModel(value) {
+      model = value;
+    },
   };
 }
 
@@ -250,6 +279,115 @@ test("registers the handoff command and only required lifecycle handlers", () =>
     "session_shutdown",
     "session_start",
   ]);
+});
+
+test("applies configured provider/model time and context limits to terminal and prompt input", async (t) => {
+  const cwd = mkdtempSync(join(tmpdir(), "pi-idle-scoped-test-"));
+  t.after(() => rmSync(cwd, { recursive: true, force: true }));
+  mkdirSync(join(cwd, ".pi"));
+  writeFileSync(join(cwd, ".pi", CONFIG_FILE_NAME), JSON.stringify({
+    enabled: true,
+    idleThresholdMinutes: 5,
+    contextThreshold: 5,
+    providerIdleThresholdMinutes: { legacy: 3 },
+    providers: {
+      cloud: { idleThresholdMinutes: 10, contextThreshold: 20 },
+      "omlx-hera": { enabled: false },
+    },
+    models: {
+      "cloud/fast": { idleThresholdMinutes: 2 },
+      "cloud/org/model": { contextThreshold: 30 },
+      "cloud/off": { enabled: false },
+      "omlx-hera/exception": { enabled: true, idleThresholdMinutes: 1, contextThreshold: 1 },
+    },
+  }));
+
+  for (const [provider, id, elapsed, percent, expectedCalls] of [
+    ["other", "off", 300_001, 5, 1],
+    ["legacy", "model", 180_001, 5, 1],
+    ["cloud", "default", 600_000, 20, 0],
+    ["cloud", "default", 600_001, 19, 0],
+    ["cloud", "default", 600_001, 20, 1],
+    ["cloud", "fast", 120_000, 20, 0],
+    ["cloud", "fast", 120_001, 19, 0],
+    ["cloud", "fast", 120_001, 20, 1],
+    ["cloud", "org/model", 600_001, 29, 0],
+    ["cloud", "org/model", 600_001, 30, 1],
+    ["cloud", "off", 60_000_000, 100, 0],
+    ["omlx-hera", "any", 60_000_000, 100, 0],
+    ["omlx-hera", "exception", 60_001, 1, 1],
+  ] as const) {
+    const harness = createHarness(elapsed);
+    const context = createContext([assistantEntry(0)], [CANCEL], {
+      cwd, model: { provider, id }, usage: { ...DEFAULT_USAGE, percent },
+    });
+    await start(harness, context);
+    context.terminalHandler?.("x");
+    const result = await harness.emit("input", inputEvent("next"), context.ctx);
+    const label = `${provider}/${id} at ${elapsed}ms, ${percent}%`;
+    assert.equal(context.dialogCalls, expectedCalls, label);
+    assert.deepEqual(result, { action: expectedCalls ? "handled" : "continue" }, label);
+    assert.deepEqual(context.notifications, [], label);
+    assert.deepEqual(harness.sends, [], label);
+    if (expectedCalls) assert.match(context.dialogLines[0]!, new RegExp(`context meets ${percent}%$`));
+  }
+});
+
+test("model switches re-resolve both thresholds and cannot reuse a shorter or disabled latch", async (t) => {
+  const cwd = mkdtempSync(join(tmpdir(), "pi-idle-switch-test-"));
+  t.after(() => rmSync(cwd, { recursive: true, force: true }));
+  mkdirSync(join(cwd, ".pi"));
+  const path = join(cwd, ".pi", CONFIG_FILE_NAME);
+  writeFileSync(path, JSON.stringify({
+    enabled: true, idleThresholdMinutes: 5, contextThreshold: 5,
+    providers: { "omlx-hera": { enabled: false } },
+    models: {
+      "cloud/fast": { idleThresholdMinutes: 2, contextThreshold: 5 },
+      "cloud/slow": { idleThresholdMinutes: 10, contextThreshold: 10 },
+      "cloud/off": { enabled: false },
+    },
+  }));
+  const fast = { provider: "cloud", id: "fast" };
+  const slow = { provider: "cloud", id: "slow" };
+  const harness = createHarness(180_001);
+  const context = createContext([assistantEntry(0)], [CANCEL], { cwd, model: fast });
+  await start(harness, context);
+  context.terminalHandler?.("x"); // Latch the short delay.
+  context.setModel(slow);
+  await harness.emit("input", inputEvent("longer delay"), context.ctx);
+  assert.equal(context.dialogCalls, 0);
+
+  harness.setNow(780_002);
+  context.terminalHandler?.("x"); // Latch the long delay, but context is below its threshold.
+  await harness.emit("input", inputEvent("higher context limit"), context.ctx);
+  assert.equal(context.dialogCalls, 0);
+  context.setModel({ provider: "omlx-hera", id: "local" });
+  assert.deepEqual(await harness.emit("input", inputEvent("disabled"), context.ctx), { action: "continue" });
+  context.setModel(fast);
+  await harness.emit("input", inputEvent("recent activity while disabled"), context.ctx);
+  assert.equal(context.dialogCalls, 0);
+
+  harness.setNow(900_003);
+  context.terminalHandler?.("x");
+  context.setModel({ provider: "cloud", id: "off" });
+  context.terminalHandler?.("x"); // Disabled terminal input also clears the previous latch.
+  context.setIdle(false);
+  assert.deepEqual(await harness.emit("input", inputEvent("no interception"), context.ctx), { action: "continue" });
+  assert.deepEqual(harness.sends, []);
+  context.setIdle(true);
+  context.setModel(fast);
+  await harness.emit("input", inputEvent("recent disabled terminal input"), context.ctx);
+  assert.equal(context.dialogCalls, 0);
+
+  harness.setNow(1_020_004);
+  await harness.emit("input", inputEvent("fast again"), context.ctx);
+  assert.equal(context.dialogCalls, 1);
+  assert.match(context.dialogLines[0]!, /context meets 5%$/);
+
+  writeFileSync(path, '{"enabled":false}');
+  await start(harness, context);
+  assert.deepEqual(await harness.emit("input", inputEvent("reloaded"), context.ctx), { action: "continue" });
+  assert.equal(context.dialogCalls, 1);
 });
 
 test("preserves the strict idle-time boundary", async () => {

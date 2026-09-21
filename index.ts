@@ -3,6 +3,7 @@ import { matchesKey } from "@earendil-works/pi-tui";
 import {
   loadIdleCheckConfig,
   meetsContextThreshold,
+  resolveIdleCheckSettings,
   resolveIdleThresholdMs,
   type ContextThreshold,
   type IdleCheckConfig,
@@ -18,9 +19,11 @@ export {
   meetsContextThreshold,
   parseContextThreshold,
   parseIdleCheckConfig,
+  resolveIdleCheckSettings,
   resolveIdleThresholdMs,
   type ContextThreshold,
   type IdleCheckConfig,
+  type IdleCheckSettings,
 } from "./src/config.ts";
 export { formatIdleDuration, getSessionIdleSeed, IDLE_THRESHOLD_MS, IdleTracker } from "./src/idle.ts";
 
@@ -115,7 +118,6 @@ export function createPiIdleCheck(options: PiIdleCheckOptions = {}): (pi: Extens
 
   return (pi: ExtensionAPI): void => {
     const tracker = new IdleTracker();
-    let contextThreshold: ContextThreshold | undefined;
     let idleCheckConfig: IdleCheckConfig | undefined;
     let pendingNewSession: { content: PromptContent; prompt: string } | undefined;
     let pendingReplay: { prompt: string; ui: ExtensionUIContext } | undefined;
@@ -155,11 +157,8 @@ export function createPiIdleCheck(options: PiIdleCheckOptions = {}): (pi: Extens
     pi.on("session_start", (_event, ctx) => {
       removeTerminalListener?.();
       try {
-        const config = loadIdleCheckConfig(ctx.cwd, ctx.isProjectTrusted());
-        contextThreshold = options.contextThreshold ?? config.contextThreshold;
-        idleCheckConfig = config;
+        idleCheckConfig = loadIdleCheckConfig(ctx.cwd, ctx.isProjectTrusted());
       } catch (error) {
-        contextThreshold = undefined;
         idleCheckConfig = undefined;
         ctx.ui.notify(`Idle check disabled: ${describeError(error)}`, "error");
       }
@@ -173,7 +172,7 @@ export function createPiIdleCheck(options: PiIdleCheckOptions = {}): (pi: Extens
               if (ctx.isIdle() && idleCheckConfig !== undefined) {
                 tracker.observeUserActivity(
                   now(),
-                  resolveIdleThresholdMs(idleCheckConfig, ctx.model?.provider),
+                  resolveIdleThresholdMs(idleCheckConfig, ctx.model?.provider, ctx.model?.id),
                 );
               }
               return undefined;
@@ -184,7 +183,6 @@ export function createPiIdleCheck(options: PiIdleCheckOptions = {}): (pi: Extens
     pi.on("session_shutdown", () => {
       removeTerminalListener?.();
       removeTerminalListener = undefined;
-      contextThreshold = undefined;
       idleCheckConfig = undefined;
       pendingNewSession = undefined;
       pendingReplay = undefined;
@@ -217,6 +215,15 @@ export function createPiIdleCheck(options: PiIdleCheckOptions = {}): (pi: Extens
         return { action: "continue" };
       }
 
+      const settings =
+        idleCheckConfig === undefined
+          ? undefined
+          : resolveIdleCheckSettings(idleCheckConfig, ctx.model?.provider, ctx.model?.id);
+      if (settings === undefined || !settings.enabled) {
+        if (settings !== undefined && ctx.isIdle()) tracker.observeUserActivity(now(), Infinity);
+        return { action: "continue" };
+      }
+
       const content: PromptContent = event.images?.length
         ? [{ type: "text", text: event.text }, ...event.images]
         : event.text;
@@ -232,26 +239,16 @@ export function createPiIdleCheck(options: PiIdleCheckOptions = {}): (pi: Extens
       if (!ctx.isIdle()) return sendAsSteer();
 
       const timestamp = now();
-      const idleThresholdMs =
-        idleCheckConfig === undefined
-          ? undefined
-          : resolveIdleThresholdMs(idleCheckConfig, ctx.model?.provider);
-      const idleDurationMs =
-        idleThresholdMs === undefined ? undefined : tracker.getPromptIdleDuration(timestamp, idleThresholdMs);
+      const idleThresholdMs = settings.idleThresholdMinutes * 60_000;
+      const idleDurationMs = tracker.getPromptIdleDuration(timestamp, idleThresholdMs);
       if (idleDurationMs === undefined) {
-        if (idleThresholdMs !== undefined) tracker.observeUserActivity(timestamp, idleThresholdMs);
+        tracker.observeUserActivity(timestamp, idleThresholdMs);
         return { action: "continue" };
       }
-      const threshold = contextThreshold;
+      const threshold = options.contextThreshold ?? settings.contextThreshold;
       const usage = ctx.getContextUsage();
-      const contextValue =
-        threshold === undefined
-          ? undefined
-          : threshold.unit === "percent"
-            ? usage?.percent
-            : usage?.tokens;
+      const contextValue = threshold.unit === "percent" ? usage?.percent : usage?.tokens;
       if (
-        threshold === undefined ||
         contextValue === undefined ||
         contextValue === null ||
         !meetsContextThreshold(threshold, usage)
