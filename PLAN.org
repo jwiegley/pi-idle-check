@@ -128,6 +128,26 @@ Match Pi's footer by rendering current percentage usage with toFixed(1), while p
 
 Render current percentage usage as a ceiling-rounded whole percent while preserving exact configured percentage thresholds; add regression coverage for observed floating-point value.
 
+* WAIT [#C] Prepare pi-idle-check for npm and Pi catalog distribution
+:PROPERTIES:
+:OBR_SCHEMA_VERSION: 17
+:ID:       idle-wpf
+:LABELS:   []
+:ISSUE_TYPE: task
+:CREATED:  [2026-09-22 Tue 10:04]
+:MODIFIED: [2026-09-22 Tue 10:10]
+:CREATED_BY: johnw
+:SOURCE_REPO: pi-idle-check
+:SOURCE_REPO_PATH: /Users/johnw/src/sys/pi-idle-check
+:ORIGINAL_SIZE: 0
+:END:
+
+Add public package metadata, verify the published payload and host loading, and document npm publication and Pi catalog discovery. Preserve UNLICENSED pending the owner's explicit license choice; do not publish.
+
+** Notes
+
+Preparation implemented: public npm metadata, prepublishOnly validation, consumer installation docs, and PUBLISHING.md with official sources. Fresh npm ci, typecheck, all 63 tests, offline packed-package load through Pi, and npm publish --dry-run pass using a temporary writable npm cache. No package published or source pushed. Awaiting owner license decision before adding LICENSE, changing UNLICENSED, and removing private:true.
+
 * DONE [#B] Bound resume history inspection for Nix gallery
 :PROPERTIES:
 :OBR_SCHEMA_VERSION: 17

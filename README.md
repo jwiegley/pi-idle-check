@@ -2,6 +2,32 @@
 
 `pi-idle-check` is a standalone [Pi](https://pi.dev) extension that protects the next typed prompt after a long idle interval and meaningful context use. It can send against the current context, compact before sending, or move the prompt into a blank new session.
 
+```text
+Session idle for 6m34s; 25.4% context exceeds 5%
+Enter send · c compact + send · C new session + send · Esc cancel
+```
+
+## Installation
+
+Requires Node.js 22.19.0 or newer and Pi `>=0.84.3 <0.85.0` (tested against 0.84.3).
+
+After the first npm release:
+
+```sh
+pi install npm:pi-idle-check
+```
+
+Before publication, install from a reviewed Git checkout:
+
+```sh
+pi install /absolute/path/to/pi-idle-check
+pi list
+```
+
+Run `/reload` or restart Pi after installation. Default settings need no configuration. Avoid loading both a Nix-managed copy and an npm or local copy.
+
+Publication remains disabled pending a license decision. See [Publishing](https://github.com/jwiegley/pi-idle-check/blob/main/PUBLISHING.md) for the release procedure and catalog requirements.
+
 ## Behavior
 
 The dialog is eligible only when all of these are true:
@@ -109,17 +135,6 @@ Version 0.1.x supports `@earendil-works/pi-coding-agent` versions `>=0.84.3 <0.8
 
 The package ships erasable TypeScript directly. It has no build step and no runtime dependencies; Pi supplies the declared coding-agent and TUI host peers.
 
-## Installation
-
-The deployed installation is Nix-managed. For development from a reviewed checkout:
-
-```sh
-pi install /absolute/path/to/pi-idle-check
-pi list
-```
-
-Run `/reload` or start a fresh Pi process after changing installed source or configuration. There is no npm release.
-
 ## Privacy and cost
 
 `pi-idle-check` makes no network requests and does not persist prompt content. Compaction and prompt submission use Pi's configured model provider in the ordinary way. Provider cache behavior and actual cost savings remain provider-specific; the extension only enforces the gate and selected action described above.
@@ -127,15 +142,21 @@ Run `/reload` or start a fresh Pi process after changing installed source or con
 ## Development
 
 ```sh
-npm install --ignore-scripts
+npm ci --ignore-scripts
 npm run typecheck
 npm test
 npm run pack:check
 npm run check
 ```
 
-Development dependencies are exact-pinned. Tests use isolated public Pi APIs and the faux provider; they make no paid or network model calls.
+Development dependencies are exact-pinned. Tests use isolated public Pi APIs and the faux provider; they make no paid or network model calls. The package smoke test packs the release files, installs the tarball offline without host peers, and loads it through Pi's resource loader. `npm publish` runs `npm run check` through `prepublishOnly`; installation runs no lifecycle scripts.
 
 ## Removal
 
-Remove the configured package source or Nix gallery entry and run `/reload`. The extension owns no persisted state to migrate or delete. User-created `pi-idle-check.json` files may be removed separately.
+For an npm installation:
+
+```sh
+pi remove npm:pi-idle-check
+```
+
+For a local or Nix-managed installation, remove the corresponding package source or gallery entry. Run `/reload` or restart Pi afterward. The extension owns no persisted state to migrate or delete. User-created `pi-idle-check.json` files may be removed separately.
