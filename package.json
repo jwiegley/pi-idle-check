@@ -2,8 +2,7 @@
   "name": "pi-idle-check",
   "version": "0.1.0",
   "description": "Pi extension offering send, compact, or new-session choices after idle time and significant context use",
-  "private": true,
-  "license": "UNLICENSED",
+  "license": "MIT",
   "author": "John Wiegley",
   "repository": {
     "type": "git",

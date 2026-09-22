@@ -128,15 +128,17 @@ Match Pi's footer by rendering current percentage usage with toFixed(1), while p
 
 Render current percentage usage as a ceiling-rounded whole percent while preserving exact configured percentage thresholds; add regression coverage for observed floating-point value.
 
-* WAIT [#C] Prepare pi-idle-check for npm and Pi catalog distribution
+* DONE [#C] Prepare pi-idle-check for npm and Pi catalog distribution
 :PROPERTIES:
 :OBR_SCHEMA_VERSION: 17
 :ID:       idle-wpf
 :LABELS:   []
 :ISSUE_TYPE: task
 :CREATED:  [2026-09-22 Tue 10:04]
-:MODIFIED: [2026-09-22 Tue 10:10]
+:MODIFIED: [2026-09-22 Tue 12:33]
 :CREATED_BY: johnw
+:FINISHED: [2026-09-22 Tue 12:33]
+:CLOSE_REASON: Prepared and verified MIT-licensed npm package and documented first-time npm setup and Pi catalog publication. All checks and publication dry run pass; actual publication remains manual.
 :SOURCE_REPO: pi-idle-check
 :SOURCE_REPO_PATH: /Users/johnw/src/sys/pi-idle-check
 :ORIGINAL_SIZE: 0
@@ -146,7 +148,7 @@ Add public package metadata, verify the published payload and host loading, and 
 
 ** Notes
 
-Preparation implemented: public npm metadata, prepublishOnly validation, consumer installation docs, and PUBLISHING.md with official sources. Fresh npm ci, typecheck, all 63 tests, offline packed-package load through Pi, and npm publish --dry-run pass using a temporary writable npm cache. No package published or source pushed. Awaiting owner license decision before adding LICENSE, changing UNLICENSED, and removing private:true.
+Owner approved MIT. Added Copyright (c) 2026 John Wiegley LICENSE, updated both manifests, removed private publication guard, required MIT metadata and LICENSE in the packed payload, and documented browser-based npm account setup, email verification, 2FA, terminal login, and credential handling. Typecheck, all 63 tests, tarball load, and npm publish --dry-run pass. No authentication, publication, or push performed.
 
 * DONE [#B] Bound resume history inspection for Nix gallery
 :PROPERTIES:

@@ -10,6 +10,7 @@ import { createTestHost } from "./support/host.ts";
 const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as {
   name: string;
   license: string;
+  private?: boolean;
   keywords: string[];
   repository: { type: string; url: string };
   homepage: string;
@@ -55,7 +56,9 @@ test("pins development inputs and declares compatible Pi host peers", () => {
   assert.equal(packageJson.engines.node, ">=22.19.0");
 });
 
-test("declares npm catalog metadata and validates before publication", () => {
+test("declares public MIT package metadata and validates before publication", () => {
+  assert.equal(packageJson.license, "MIT");
+  assert.notEqual(packageJson.private, true);
   assert.ok(packageJson.keywords.includes("pi-package"));
   assert.deepEqual(packageJson.repository, {
     type: "git",
@@ -91,14 +94,14 @@ test("packs only release files and loads the installed tarball through Pi", asyn
     { filename: string; files: { path: string }[] },
   ];
   const files = packed.files.map((file) => file.path).sort();
-  assert.deepEqual(files.filter((path) => path !== "LICENSE"), [
+  assert.deepEqual(files, [
+    "LICENSE",
     "README.md",
     "index.ts",
     "package.json",
     "src/config.ts",
     "src/idle.ts",
   ]);
-  if (packageJson.license !== "UNLICENSED") assert.ok(files.includes("LICENSE"));
 
   // Pi supplies host peers; install only the extension, with no scripts or network.
   execFileSync("npm", [

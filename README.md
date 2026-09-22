@@ -26,7 +26,7 @@ pi list
 
 Run `/reload` or restart Pi after installation. Default settings need no configuration. Avoid loading both a Nix-managed copy and an npm or local copy.
 
-Publication remains disabled pending a license decision. See [Publishing](https://github.com/jwiegley/pi-idle-check/blob/main/PUBLISHING.md) for the release procedure and catalog requirements.
+Licensed under [MIT](LICENSE). See [Publishing](https://github.com/jwiegley/pi-idle-check/blob/main/PUBLISHING.md) for npm account setup, the release procedure, and catalog requirements.
 
 ## Behavior
 
