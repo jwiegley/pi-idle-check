@@ -38,21 +38,27 @@ Allow time/context limits and disabling idle checks for a provider or model; pre
 
 Prevent idle-choice races from passing an untyped prompt into a newly active agent. Active Return must steer; active Alt-Return must remain follow-up.
 
-* DOING [#C] Publish pi-idle-check 0.1.0 to npm
+* DONE [#C] Publish pi-idle-check 0.1.0 to npm
 :PROPERTIES:
 :OBR_SCHEMA_VERSION: 17
 :ID:       idle-bph
 :LABELS:   []
 :ISSUE_TYPE: task
 :CREATED:  [2026-09-22 Tue 12:55]
-:MODIFIED: [2026-09-22 Tue 12:56]
+:MODIFIED: [2026-09-22 Tue 13:02]
 :CREATED_BY: johnw
+:FINISHED: [2026-09-22 Tue 13:02]
+:CLOSE_REASON: Published and independently verified npm release 0.1.0 and live Pi catalog listing; recorded exact source release tag and browser 2FA guidance.
 :SOURCE_REPO: pi-idle-check
 :SOURCE_REPO_PATH: /Users/johnw/src/sys/pi-idle-check
 :ORIGINAL_SIZE: 0
 :END:
 
 Owner authorized publication. Finalize consumer installation text, validate package, publish under jwiegley, verify registry tarball and Pi host loading, and record the release tag and source on GitHub.
+
+** Notes
+
+Published pi-idle-check@0.1.0 as jwiegley after interactive browser 2FA approval. Verified npm registry MIT/keyword/manifest/gitHead, exact tarball integrity and six-file payload, isolated npm install and Pi host loading. Pi catalog page https://pi.dev/packages/pi-idle-check already lists 0.1.0. Release tag v0.1.0 points to published gitHead 74ce8d3c447570f3d8d4f2d8a5ae34476af00b0b. Documented interactive publication requirement; five complete 63-test checks and prepublish checks passed after fixing replay test deadlines.
 
 * DONE [#C] Add context-aware idle prompt actions
 :PROPERTIES:

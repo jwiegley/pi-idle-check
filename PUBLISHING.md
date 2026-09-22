@@ -70,7 +70,9 @@ The following command is the public publication step. It uploads the package to 
 npm publish --access public
 ```
 
-Publishing from the checkout runs `prepublishOnly`, which repeats `npm run check`. Do not bypass it with `--ignore-scripts`. npm may prompt for two-factor authentication. A published name/version pair cannot be reused, even after unpublishing.
+Publishing from the checkout runs `prepublishOnly`, which repeats `npm run check`. Do not bypass it with `--ignore-scripts`. A published name/version pair cannot be reused, even after unpublishing.
+
+Run publication in an interactive terminal. npm can request a separate browser-based 2FA approval even after a successful login. With passkeys or security keys, a non-interactive runner may instead report `EOTP`; rerun the command in an interactive terminal and approve the browser prompt rather than disabling 2FA or sharing authentication codes.
 
 After a successful publication, verify the release and record its source tag:
 
