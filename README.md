@@ -11,13 +11,13 @@ Enter send · c compact + send · C new session + send · Esc cancel
 
 Requires Node.js 22.19.0 or newer and Pi `>=0.84.3 <0.85.0` (tested against 0.84.3).
 
-After the first npm release:
+Install from npm:
 
 ```sh
 pi install npm:pi-idle-check
 ```
 
-Before publication, install from a reviewed Git checkout:
+For development, install from a reviewed Git checkout:
 
 ```sh
 pi install /absolute/path/to/pi-idle-check

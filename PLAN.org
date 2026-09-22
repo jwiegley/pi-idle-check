@@ -38,6 +38,22 @@ Allow time/context limits and disabling idle checks for a provider or model; pre
 
 Prevent idle-choice races from passing an untyped prompt into a newly active agent. Active Return must steer; active Alt-Return must remain follow-up.
 
+* DOING [#C] Publish pi-idle-check 0.1.0 to npm
+:PROPERTIES:
+:OBR_SCHEMA_VERSION: 17
+:ID:       idle-bph
+:LABELS:   []
+:ISSUE_TYPE: task
+:CREATED:  [2026-09-22 Tue 12:55]
+:MODIFIED: [2026-09-22 Tue 12:56]
+:CREATED_BY: johnw
+:SOURCE_REPO: pi-idle-check
+:SOURCE_REPO_PATH: /Users/johnw/src/sys/pi-idle-check
+:ORIGINAL_SIZE: 0
+:END:
+
+Owner authorized publication. Finalize consumer installation text, validate package, publish under jwiegley, verify registry tarball and Pi host loading, and record the release tag and source on GitHub.
+
 * DONE [#C] Add context-aware idle prompt actions
 :PROPERTIES:
 :OBR_SCHEMA_VERSION: 17
@@ -127,6 +143,40 @@ Match Pi's footer by rendering current percentage usage with toFixed(1), while p
 :END:
 
 Render current percentage usage as a ceiling-rounded whole percent while preserving exact configured percentage thresholds; add regression coverage for observed floating-point value.
+
+* DONE [#C] Wait for replay events instead of 100 ms test deadlines
+:PROPERTIES:
+:OBR_SCHEMA_VERSION: 17
+:ID:       idle-vui
+:LABELS:   []
+:ISSUE_TYPE: bug
+:CREATED:  [2026-09-22 Tue 12:56]
+:MODIFIED: [2026-09-22 Tue 12:57]
+:CREATED_BY: johnw
+:FINISHED: [2026-09-22 Tue 12:57]
+:CLOSE_REASON: Removed arbitrary 100 ms races and await actual replay-start events under the existing 5-second test deadline. All content, session, count, and resume assertions retained; five consecutive complete release checks pass (63 tests each).
+:SOURCE_REPO: pi-idle-check
+:SOURCE_REPO_PATH: /Users/johnw/src/sys/pi-idle-check
+:ORIGINAL_SIZE: 0
+:END:
+
+Release gate intermittently fails the second new-session replay Promise.race in behavior.integration.test.ts:438. Both replay-event waits race valid asynchronous host setup against an arbitrary 100 ms timer despite an existing 5-second test timeout. Await the real events under the test deadline; preserve expanded-content, session identity, replay count, and resume assertions.
+
+** Dependencies
+
+#+begin_src json
+[
+  {
+    "issue_id": "idle-vui",
+    "depends_on_id": "idle-bph",
+    "type": "discovered-from",
+    "created_at": "2026-09-22T19:56:39.235529Z",
+    "created_by": "johnw",
+    "metadata": "{}",
+    "thread_id": ""
+  }
+]
+#+end_src
 
 * DONE [#C] Prepare pi-idle-check for npm and Pi catalog distribution
 :PROPERTIES:

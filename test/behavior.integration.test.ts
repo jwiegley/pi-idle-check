@@ -397,15 +397,7 @@ test(
       now = Date.parse(runtime.session.sessionManager.getLeafEntry()?.timestamp ?? "") + 300_001;
 
       await runtime.session.prompt("/handoff value", { images: [image] });
-      const templateReplayDidStart = await Promise.race([
-        templateReplayStarting.then(() => true),
-        new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 100)),
-      ]);
-      assert.equal(
-        templateReplayDidStart,
-        true,
-        JSON.stringify({ calls: faux.state.callCount, reasons, dialogs: newSessionUi.selectCalls }),
-      );
+      await templateReplayStarting;
       await runtime.session.waitForIdle();
 
       const templateSessionFile = runtime.session.sessionFile;
@@ -431,11 +423,7 @@ test(
 
       now += 300_001;
       await runtime.session.prompt("/skill:audit details");
-      const skillReplayDidStart = await Promise.race([
-        skillReplayStarting.then(() => true),
-        new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 100)),
-      ]);
-      assert.equal(skillReplayDidStart, true);
+      await skillReplayStarting;
       await runtime.session.waitForIdle();
 
       const skillSessionFile = runtime.session.sessionFile;
